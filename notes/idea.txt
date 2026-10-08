@@ -1,0 +1,16 @@
+Should be able to read, understand and audit
+DSA
+- algo think and sys design
+- pattern recognition
+- constraint design 
+- startegic think
+- debug live
+- how to vaild Output 
+- architectural reasoning 
+- how to craft constraints
+
+DSA is a vocab
+ai is printing press
+
+DOCKER, AWS FREE TIER, GITHUB ACTIONS
+Use langchain to build a basic  task automation engine 

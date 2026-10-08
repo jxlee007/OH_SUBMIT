@@ -22,4 +22,7 @@ Customer → Menu → Order → Payment → Bill → Inventory.
 3. Technical/system performance
 "Dashboard loads in under 1 second for 10,000 records."
 
-"Here is a painful business problem → here is the Odoo workflow → here is our measurable improvement → here is the live demo proving it."
+"Here is a painful business problem 
+→ here is the Odoo workflow 
+→ here is our measurable improvement 
+→ here is the live demo proving it."
