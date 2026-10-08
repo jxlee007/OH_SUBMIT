@@ -1,6 +1,8 @@
 # **UNIVERSAL QUESTIONNAIRE FOR PROJECTS & CODE**
 
-**Use this checklist for EVERY project, feature, and code snippet. Ask in order. Same questions = consistent thinking.**
+**Use this checklist for EVERY project, feature, and code snippet. 
+Ask in order. Same questions = consistent thinking.
+THIS WILL GIVE YOU ARCHITECTURAL REASONING**
 
 ---
 
