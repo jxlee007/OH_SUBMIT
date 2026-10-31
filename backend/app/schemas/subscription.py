@@ -24,6 +24,7 @@ class SubscriptionCreate(BaseModel):
     plan_id: int
     start_date: date
     expiry_date: Optional[date] = None
+    quote_valid_until: Optional[date] = None
     payment_terms: Optional[str] = None
     notes: Optional[str] = None
     lines: List[SubscriptionLineCreate] = []
@@ -36,6 +37,7 @@ class SubscriptionRead(BaseModel):
     plan_id: int
     start_date: date
     expiry_date: Optional[date]
+    quote_valid_until: Optional[date] = None
     payment_terms: Optional[str]
     status: str
     notes: Optional[str]

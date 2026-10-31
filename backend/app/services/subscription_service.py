@@ -1,5 +1,6 @@
 """Subscription service — creation and lifecycle state machine transitions."""
 import uuid
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -34,6 +35,7 @@ def create_subscription(payload: SubscriptionCreate, db: Session) -> Subscriptio
         plan_id=payload.plan_id,
         start_date=payload.start_date,
         expiry_date=payload.expiry_date,
+        quote_valid_until=payload.quote_valid_until,
         payment_terms=payload.payment_terms,
         notes=payload.notes,
         status="draft",
@@ -77,7 +79,7 @@ def get_subscription(sub_id: int, db: Session) -> Subscription:
 
 def update_subscription_status(sub_id: int, payload: SubscriptionStatusUpdate, db: Session) -> Subscription:
     """Advance subscription status following strict state machine rules.
-    Returns 409 Conflict if transition is illegal from current state."""
+    Returns 409 Conflict if transition is illegal from current state or if quotation has expired."""
     sub = get_subscription(sub_id, db)
     allowed = STATUS_TRANSITIONS.get(sub.status, [])
     if payload.status not in allowed:
@@ -85,6 +87,15 @@ def update_subscription_status(sub_id: int, payload: SubscriptionStatusUpdate, d
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot transition from '{sub.status}' to '{payload.status}'. Allowed: {allowed}",
         )
+
+    # Quotation validity guard
+    if payload.status == "confirmed" and sub.status == "quotation":
+        if sub.quote_valid_until is not None and sub.quote_valid_until < date.today():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Quotation expired on {sub.quote_valid_until} and cannot be confirmed. Please regenerate quotation.",
+            )
+
     sub.status = payload.status
     db.commit()
     db.refresh(sub)

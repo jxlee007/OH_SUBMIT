@@ -15,6 +15,7 @@ from backend.app.models.subscription import Subscription, SubscriptionLine
 from backend.app.models.invoice import Invoice, InvoiceLine
 from backend.app.models.payment import Payment
 from backend.app.models.discount import DiscountRule
+from backend.app.models.quotation_template import QuotationTemplate, QuotationTemplateLine
 
 
 def seed_demo_data():
@@ -267,6 +268,34 @@ def seed_demo_data():
             db.add(d1)
             db.commit()
             print("[OK] Discount rule verified: WELCOME10 (10% off).")
+
+        # 8. Quotation Templates
+        qt1 = db.query(QuotationTemplate).filter(QuotationTemplate.name == "Enterprise Starter Bundle").first()
+        if not qt1:
+            qt1 = QuotationTemplate(
+                name="Enterprise Starter Bundle",
+                description="Pre-packaged standard enterprise subscription with core seat and analytics",
+                plan_id=monthly_plan.id,
+                validity_days=30,
+            )
+            db.add(qt1)
+            db.flush()
+
+            qt_line1 = QuotationTemplateLine(
+                template_id=qt1.id,
+                product_id=suite.id,
+                quantity=5,
+                unit_price=Decimal("1200.00"),
+            )
+            qt_line2 = QuotationTemplateLine(
+                template_id=qt1.id,
+                product_id=analytics.id,
+                quantity=1,
+                unit_price=Decimal("450.00"),
+            )
+            db.add_all([qt_line1, qt_line2])
+            db.commit()
+            print("[OK] Quotation template verified: Enterprise Starter Bundle (30 days validity).")
 
         print("\nAll database seeds successfully established in local PostgreSQL (oh_db)!")
     finally:

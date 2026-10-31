@@ -33,6 +33,7 @@ class Subscription(IDMixin, TimestampMixin, Base):
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False, index=True)
     start_date = Column(Date, nullable=False)
     expiry_date = Column(Date, nullable=True)
+    quote_valid_until = Column(Date, nullable=True)
     payment_terms = Column(String(100), nullable=True)
     status = Column(String(20), nullable=False, default="draft")
     notes = Column(Text, nullable=True)

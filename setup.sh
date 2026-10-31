@@ -11,11 +11,22 @@ echo "  Odoo x FLUX Lucknow Hackathon 2026 - Stack Setup      "
 echo "========================================================"
 echo ""
 
-# 1. Python Virtual Environment Setup
+# 1. Environment Config Setup
+if [ ! -f "backend/.env" ] && [ -f "backend/.env.example" ]; then
+    echo "[0/4] Creating backend/.env from backend/.env.example..."
+    cp backend/.env.example backend/.env
+fi
+
+# 2. Python Virtual Environment Setup
 echo "[1/4] Checking Python Virtual Environment..."
+PYTHON_CMD="python3"
+if ! command -v python3 &> /dev/null; then
+    PYTHON_CMD="python"
+fi
+
 if [ ! -d ".venv" ]; then
     echo "Creating virtual environment in .venv..."
-    python3 -m venv .venv 2>/dev/null || python -m venv .venv
+    $PYTHON_CMD -m venv .venv
 fi
 
 # Detect activation script (Windows vs POSIX)
@@ -29,27 +40,33 @@ else
     echo "Warning: Could not find virtualenv activate script. Continuing with system python..."
 fi
 
-# 2. Backend Dependencies
+# 3. Backend Dependencies
 echo ""
 echo "[2/4] Installing backend dependencies..."
-pip install --upgrade pip
-pip install -r backend/requirements.txt
+pip install --upgrade pip --quiet
+pip install -r backend/requirements.txt --quiet
 
-# 3. Database Initialization & Seed Check
+# 4. Database Initialization & Seed Check (Non-fatal warning if PG is down)
 echo ""
 echo "[3/4] Initializing PostgreSQL database and running seed verification..."
+set +e
 python -m backend.scripts.seed
+SEED_EXIT_CODE=$?
+set -e
+if [ $SEED_EXIT_CODE -ne 0 ]; then
+    echo "Notice: Database seed could not connect to PostgreSQL."
+    echo "        Ensure PostgreSQL is running locally and database 'oh_db' exists,"
+    echo "        then run: python -m backend.scripts.seed"
+fi
 
-# 4. Frontend Dependencies
+# 5. Frontend Dependencies
 echo ""
 echo "[4/4] Installing frontend dependencies..."
-cd frontend
 if command -v npm.cmd &> /dev/null; then
-    npm.cmd install
+    (cd frontend && npm.cmd install)
 else
-    npm install
+    (cd frontend && npm install)
 fi
-cd ..
 
 echo ""
 echo "========================================================"
@@ -67,4 +84,3 @@ echo "  cd frontend && npm run dev"
 echo ""
 echo "Or on Windows, simply run: ./dev.bat"
 echo "========================================================"
-

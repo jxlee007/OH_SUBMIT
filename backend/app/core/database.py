@@ -37,7 +37,33 @@ def check_db_connection() -> dict:
 
 
 def create_tables() -> None:
-    """Create all SQLAlchemy-mapped tables (idempotent)."""
+    """Create all SQLAlchemy-mapped tables (idempotent) and apply schema updates."""
     # Import all models so their metadata is registered before create_all
-    from backend.app.models import user, product, plan, subscription, invoice, payment  # noqa: F401
+    from backend.app.models import (  # noqa: F401
+        user,
+        product,
+        plan,
+        subscription,
+        invoice,
+        payment,
+        discount,
+        password_reset,
+        quotation_template,
+    )
     Base.metadata.create_all(bind=engine)
+
+    # Ensure schema migrations for newly added columns on existing tables
+    with engine.connect() as conn:
+        migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS quote_valid_until DATE;",
+            "ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00;",
+            "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_pause BOOLEAN NOT NULL DEFAULT FALSE;",
+            "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_renew BOOLEAN NOT NULL DEFAULT TRUE;",
+        ]
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+            except Exception:
+                pass
+        conn.commit()
