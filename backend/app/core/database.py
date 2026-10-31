@@ -16,6 +16,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+
 def get_db() -> Generator[Session, None, None]:
     """Dependency for obtaining database sessions per request."""
     db = SessionLocal()
@@ -23,6 +24,7 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
 
 def check_db_connection() -> dict:
     """Verifies live PostgreSQL connection status."""
@@ -33,3 +35,9 @@ def check_db_connection() -> dict:
     except Exception as exc:
         return {"connected": False, "ping": None, "error": str(exc)}
 
+
+def create_tables() -> None:
+    """Create all SQLAlchemy-mapped tables (idempotent)."""
+    # Import all models so their metadata is registered before create_all
+    from backend.app.models import user, product, subscription, invoice, payment  # noqa: F401
+    Base.metadata.create_all(bind=engine)
