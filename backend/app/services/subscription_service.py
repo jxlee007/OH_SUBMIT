@@ -1,4 +1,4 @@
-"""Subscription service — creation and lifecycle transitions."""
+"""Subscription service — creation and lifecycle state machine transitions."""
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException, status
@@ -76,12 +76,13 @@ def get_subscription(sub_id: int, db: Session) -> Subscription:
 
 
 def update_subscription_status(sub_id: int, payload: SubscriptionStatusUpdate, db: Session) -> Subscription:
-    """Advance subscription status following allowed transitions."""
+    """Advance subscription status following strict state machine rules.
+    Returns 409 Conflict if transition is illegal from current state."""
     sub = get_subscription(sub_id, db)
     allowed = STATUS_TRANSITIONS.get(sub.status, [])
     if payload.status not in allowed:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot transition from '{sub.status}' to '{payload.status}'. Allowed: {allowed}",
         )
     sub.status = payload.status

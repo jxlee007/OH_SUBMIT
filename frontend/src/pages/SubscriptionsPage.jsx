@@ -8,7 +8,7 @@ import {
   getCurrentUser 
 } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
-import { Repeat, Plus, CheckCircle, ArrowRight, XCircle, ShieldAlert } from 'lucide-react';
+import { Repeat, Plus, CheckCircle, ArrowRight, XCircle, FileSpreadsheet } from 'lucide-react';
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -66,7 +66,7 @@ export default function SubscriptionsPage() {
     setSuccess('');
     const res = await updateSubscriptionStatus(id, nextStatus);
     if (res.success) {
-      setSuccess(`Subscription #${id} transitioned to ${nextStatus}.`);
+      setSuccess(`Subscription #${id} successfully transitioned to ${nextStatus}.`);
       fetchData();
     } else {
       setError(res.error || 'Failed to transition subscription status.');
@@ -108,6 +108,7 @@ export default function SubscriptionsPage() {
   const statusBadge = (status) => {
     const styles = {
       draft: 'bg-slate-100 text-slate-700 border-slate-200',
+      quotation: 'bg-sky-50 text-sky-800 border-sky-200',
       confirmed: 'bg-amber-50 text-amber-800 border-amber-200',
       active: 'bg-emerald-50 text-emerald-800 border-emerald-200',
       closed: 'bg-rose-50 text-rose-800 border-rose-200',
@@ -126,7 +127,7 @@ export default function SubscriptionsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Subscriptions</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Manage recurring lifecycle: Draft → Confirmed → Active → Closed
+            Strict State Machine: Draft → Quotation → Confirmed → Active → Closed
           </p>
         </div>
         {user?.role !== 'customer' && (
@@ -145,7 +146,7 @@ export default function SubscriptionsPage() {
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center gap-2">
-        {['', 'draft', 'confirmed', 'active', 'closed'].map((st) => (
+        {['', 'draft', 'quotation', 'confirmed', 'active', 'closed'].map((st) => (
           <button
             key={st}
             onClick={() => setStatusFilter(st)}
@@ -168,8 +169,8 @@ export default function SubscriptionsPage() {
               <th className="px-5 py-3.5">Number</th>
               <th className="px-5 py-3.5">Customer / Terms</th>
               <th className="px-5 py-3.5">Start Date</th>
-              <th className="px-5 py-3.5">Status</th>
-              <th className="px-5 py-3.5 text-right">Actions (Transitions)</th>
+              <th className="px-5 py-3.5">Lifecycle State</th>
+              <th className="px-5 py-3.5 text-right">Allowed State Transitions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -186,8 +187,18 @@ export default function SubscriptionsPage() {
                   <div className="flex items-center justify-end gap-1.5">
                     {sub.status === 'draft' && (
                       <button
+                        onClick={() => handleStatusTransition(sub.id, 'quotation')}
+                        className="px-2.5 py-1 text-xs font-medium bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-md transition"
+                        title="Send Quotation to Customer"
+                      >
+                        Send Quotation
+                      </button>
+                    )}
+                    {sub.status === 'quotation' && (
+                      <button
                         onClick={() => handleStatusTransition(sub.id, 'confirmed')}
                         className="px-2.5 py-1 text-xs font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md transition"
+                        title="Customer Confirms Quotation"
                       >
                         Confirm
                       </button>
@@ -196,11 +207,12 @@ export default function SubscriptionsPage() {
                       <button
                         onClick={() => handleStatusTransition(sub.id, 'active')}
                         className="px-2.5 py-1 text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md transition"
+                        title="Activate Subscription"
                       >
                         Activate
                       </button>
                     )}
-                    {(sub.status === 'active' || sub.status === 'confirmed' || sub.status === 'draft') && (
+                    {sub.status !== 'closed' && (
                       <button
                         onClick={() => handleStatusTransition(sub.id, 'closed')}
                         className="px-2 py-1 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition"
@@ -230,6 +242,14 @@ export default function SubscriptionsPage() {
             </div>
             <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
               {sub.status === 'draft' && (
+                <button
+                  onClick={() => handleStatusTransition(sub.id, 'quotation')}
+                  className="px-3 py-1 text-xs font-semibold bg-sky-100 text-sky-800 rounded-md"
+                >
+                  Send Quotation
+                </button>
+              )}
+              {sub.status === 'quotation' && (
                 <button
                   onClick={() => handleStatusTransition(sub.id, 'confirmed')}
                   className="px-3 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-md"

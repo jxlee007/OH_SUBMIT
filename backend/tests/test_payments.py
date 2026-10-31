@@ -1,4 +1,4 @@
-"""Payment tests — happy path and validation failures."""
+"""Payment tests — happy path, validation failures, and 403 RBAC."""
 from datetime import date
 
 PAYMENTS_URL = "/api/payments"
@@ -11,7 +11,8 @@ def auth_header(token: str) -> dict:
 
 def _seed_confirmed_invoice(db_session):
     from backend.app.models.user import User
-    from backend.app.models.product import Product, Plan
+    from backend.app.models.product import Product
+    from backend.app.models.plan import Plan
     from backend.app.models.subscription import Subscription, SubscriptionLine
     from backend.app.models.invoice import Invoice
     from backend.app.core.security import hash_password
@@ -100,3 +101,14 @@ def test_payment_unknown_invoice_returns_404(client, admin_token, db_session):
         headers=auth_header(admin_token),
     )
     assert resp.status_code == 404, resp.text
+
+
+def test_customer_cannot_record_payment_returns_403(client, customer_token, db_session):
+    """POST /api/payments — customer role attempting to record payment → 403 Forbidden."""
+    inv_id = _seed_confirmed_invoice(db_session)
+    resp = client.post(
+        PAYMENTS_URL,
+        json={"invoice_id": inv_id, "amount": "100", "method": "cash", "payment_date": str(date.today())},
+        headers=auth_header(customer_token),
+    )
+    assert resp.status_code == 403, resp.text

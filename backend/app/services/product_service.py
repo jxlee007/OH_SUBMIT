@@ -1,12 +1,10 @@
-"""Product and Plan service — CRUD operations."""
+"""Product service — isolated CRUD for catalog products."""
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.app.models.product import Product, Plan
-from backend.app.schemas.product import ProductCreate, PlanCreate
+from backend.app.models.product import Product
+from backend.app.schemas.product import ProductCreate
 
-
-# ── Products ──────────────────────────────────────────────────────────────────
 
 def create_product(payload: ProductCreate, db: Session) -> Product:
     product = Product(**payload.model_dump())
@@ -37,31 +35,3 @@ def update_product(product_id: int, payload: ProductCreate, db: Session) -> Prod
     db.commit()
     db.refresh(product)
     return product
-
-
-# ── Plans ─────────────────────────────────────────────────────────────────────
-
-def create_plan(payload: PlanCreate, db: Session) -> Plan:
-    # Verify product exists
-    product = db.query(Product).filter(Product.id == payload.product_id).first()
-    if not product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
-    plan = Plan(**payload.model_dump())
-    db.add(plan)
-    db.commit()
-    db.refresh(plan)
-    return plan
-
-
-def list_plans(db: Session, active_only: bool = True) -> list[Plan]:
-    q = db.query(Plan)
-    if active_only:
-        q = q.filter(Plan.is_active == True)  # noqa: E712
-    return q.all()
-
-
-def get_plan(plan_id: int, db: Session) -> Plan:
-    plan = db.query(Plan).filter(Plan.id == plan_id).first()
-    if not plan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found.")
-    return plan

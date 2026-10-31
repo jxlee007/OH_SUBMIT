@@ -1,4 +1,4 @@
-"""Subscription tests."""
+"""Subscription tests — 5-state lifecycle, 409 illegal transition, and 403 RBAC."""
 from datetime import date
 
 SUBS_URL = "/api/subscriptions"
@@ -10,7 +10,8 @@ def auth_header(token: str) -> dict:
 
 def _seed_customer_and_plan(db_session):
     from backend.app.models.user import User
-    from backend.app.models.product import Product, Plan
+    from backend.app.models.product import Product
+    from backend.app.models.plan import Plan
     from backend.app.core.security import hash_password
     customer = User(email="c@test.com", hashed_password=hash_password("X@1aaaaa"), full_name="C", role="customer")
     db_session.add(customer)
@@ -38,7 +39,7 @@ def test_create_subscription_happy_path(client, admin_token, db_session):
 
 
 def test_subscription_status_lifecycle(client, admin_token, db_session):
-    """PATCH status: draft → confirmed → active → closed."""
+    """PATCH status state machine: draft → quotation → confirmed → active → closed."""
     cid, pid = _seed_customer_and_plan(db_session)
     create_resp = client.post(
         SUBS_URL,
@@ -47,7 +48,8 @@ def test_subscription_status_lifecycle(client, admin_token, db_session):
     )
     sub_id = create_resp.json()["data"]["id"]
 
-    for target_status in ("confirmed", "active", "closed"):
+    # Full 5-state progression from PDF specification
+    for target_status in ("quotation", "confirmed", "active", "closed"):
         r = client.patch(
             f"{SUBS_URL}/{sub_id}/status",
             json={"status": target_status},
@@ -57,8 +59,8 @@ def test_subscription_status_lifecycle(client, admin_token, db_session):
         assert r.json()["data"]["status"] == target_status
 
 
-def test_invalid_status_transition_returns_400(client, admin_token, db_session):
-    """PATCH status: draft → paid → 400 (invalid transition)."""
+def test_invalid_status_transition_returns_409(client, admin_token, db_session):
+    """PATCH status: draft → active (skipping quotation & confirmed) → 409 Conflict."""
     cid, pid = _seed_customer_and_plan(db_session)
     create_resp = client.post(
         SUBS_URL,
@@ -68,15 +70,27 @@ def test_invalid_status_transition_returns_400(client, admin_token, db_session):
     sub_id = create_resp.json()["data"]["id"]
     r = client.patch(
         f"{SUBS_URL}/{sub_id}/status",
-        json={"status": "active"},  # draft can't skip to active
+        json={"status": "active"},  # draft cannot skip to active
         headers=auth_header(admin_token),
     )
-    assert r.status_code == 400, r.text
+    assert r.status_code == 409, r.text
+
+
+def test_customer_cannot_create_subscription_returns_403(client, customer_token, db_session):
+    """POST /api/subscriptions — customer role attempts to create subscription → 403 Forbidden."""
+    cid, pid = _seed_customer_and_plan(db_session)
+    r = client.post(
+        SUBS_URL,
+        json={"customer_id": cid, "plan_id": pid, "start_date": str(date.today())},
+        headers=auth_header(customer_token),
+    )
+    assert r.status_code == 403, r.text
 
 
 def test_create_subscription_unknown_customer_returns_422(client, admin_token, db_session):
     """POST /api/subscriptions — non-existent customer → 422."""
-    from backend.app.models.product import Product, Plan
+    from backend.app.models.product import Product
+    from backend.app.models.plan import Plan
     product = Product(name="P2", sales_price=50, cost_price=0)
     db_session.add(product)
     db_session.flush()

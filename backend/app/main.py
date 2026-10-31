@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 
 from backend.app.core.config import settings
 from backend.app.core.database import create_tables
-from backend.app.routes import health, auth, products, subscriptions, invoices, payments, dashboard
+from backend.app.routes import health, auth, products, plans, subscriptions, invoices, payments, dashboard
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,13 +81,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(products.router, prefix="/api")
-app.include_router(products.plans_router, prefix="/api")
+app.include_router(plans.router, prefix="/api")
 app.include_router(subscriptions.router, prefix="/api")
 app.include_router(invoices.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")

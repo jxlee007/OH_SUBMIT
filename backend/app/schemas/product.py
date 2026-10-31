@@ -1,8 +1,9 @@
-"""Product and Plan schemas."""
-from datetime import date
+"""Product schemas — payload validation for base products."""
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
+# Re-export Plan schemas from dedicated plan module
+from backend.app.schemas.plan import PlanCreate, PlanRead  # noqa: F401
 
 
 class ProductCreate(BaseModel):
@@ -14,40 +15,6 @@ class ProductCreate(BaseModel):
 
 
 class ProductRead(ProductCreate):
-    id: int
-    is_active: bool
-    model_config = {"from_attributes": True}
-
-
-class PlanCreate(BaseModel):
-    product_id: int
-    name: str
-    price: Decimal
-    billing_period: str = "monthly"
-    min_quantity: int = 1
-    available_from: Optional[date] = None
-    available_until: Optional[date] = None
-    auto_close: bool = False
-    can_pause: bool = False
-    can_renew: bool = True
-
-    @field_validator("billing_period")
-    @classmethod
-    def billing_period_valid(cls, v: str) -> str:
-        allowed = ("daily", "weekly", "monthly", "yearly")
-        if v not in allowed:
-            raise ValueError(f"must be one of: {', '.join(allowed)}")
-        return v
-
-    @field_validator("price")
-    @classmethod
-    def price_positive(cls, v: Decimal) -> Decimal:
-        if v < 0:
-            raise ValueError("price must be non-negative")
-        return v
-
-
-class PlanRead(PlanCreate):
     id: int
     is_active: bool
     model_config = {"from_attributes": True}

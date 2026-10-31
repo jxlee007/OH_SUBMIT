@@ -39,5 +39,5 @@ def check_db_connection() -> dict:
 def create_tables() -> None:
     """Create all SQLAlchemy-mapped tables (idempotent)."""
     # Import all models so their metadata is registered before create_all
-    from backend.app.models import user, product, subscription, invoice, payment  # noqa: F401
+    from backend.app.models import user, product, plan, subscription, invoice, payment  # noqa: F401
     Base.metadata.create_all(bind=engine)
