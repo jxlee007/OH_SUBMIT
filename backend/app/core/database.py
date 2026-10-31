@@ -49,6 +49,7 @@ def create_tables() -> None:
         discount,
         password_reset,
         quotation_template,
+        variant,
     )
     Base.metadata.create_all(bind=engine)
 
@@ -57,6 +58,7 @@ def create_tables() -> None:
         migrations = [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 1;",
             "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS quote_valid_until DATE;",
+            "ALTER TABLE subscription_lines ADD COLUMN IF NOT EXISTS variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL;",
             "ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00;",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_pause BOOLEAN NOT NULL DEFAULT FALSE;",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_renew BOOLEAN NOT NULL DEFAULT TRUE;",

@@ -10,7 +10,7 @@ from backend.app.core.config import settings
 from backend.app.core.database import create_tables
 from backend.app.routes import (
     health, auth, products, plans, subscriptions, invoices, payments,
-    dashboard, discounts, quotation_templates,
+    dashboard, discounts, quotation_templates, variants,
 )
 
 logging.basicConfig(
@@ -95,6 +95,7 @@ app.include_router(invoices.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(discounts.router, prefix="/api")
 app.include_router(quotation_templates.router, prefix="/api")
+app.include_router(variants.router)
 app.include_router(dashboard.router, prefix="/api")
 
 

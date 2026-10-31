@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.subscription import Subscription, SubscriptionLine, STATUS_TRANSITIONS
 from backend.app.models.user import User
-from backend.app.models.product import Plan
+from backend.app.models.product import Product, Plan
+from backend.app.models.variant import ProductVariant
 from backend.app.schemas.subscription import SubscriptionCreate, SubscriptionStatusUpdate
 
 
@@ -44,13 +45,32 @@ def create_subscription(payload: SubscriptionCreate, db: Session) -> Subscriptio
     db.flush()  # get sub.id before adding lines
 
     for line_data in payload.lines:
-        amount = _compute_line_amount(line_data.quantity, line_data.unit_price)
+        unit_price = line_data.unit_price
+        if line_data.variant_id:
+            variant = db.query(ProductVariant).filter(ProductVariant.id == line_data.variant_id).first()
+            if not variant:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Variant not found.")
+            if variant.product_id != line_data.product_id:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Variant {line_data.variant_id} does not belong to product {line_data.product_id}.",
+                )
+            if unit_price is None:
+                prod = db.query(Product).filter(Product.id == line_data.product_id).first()
+                base_price = prod.sales_price if prod else Decimal("0.00")
+                unit_price = base_price + variant.price_delta
+        elif unit_price is None:
+            prod = db.query(Product).filter(Product.id == line_data.product_id).first()
+            unit_price = prod.sales_price if prod else Decimal("0.00")
+
+        amount = _compute_line_amount(line_data.quantity, unit_price)
         line = SubscriptionLine(
             subscription_id=sub.id,
             product_id=line_data.product_id,
+            variant_id=line_data.variant_id,
             description=line_data.description,
             quantity=line_data.quantity,
-            unit_price=line_data.unit_price,
+            unit_price=unit_price,
             tax_rate=line_data.tax_rate,
             amount=amount,
         )

@@ -7,14 +7,21 @@ from pydantic import BaseModel, field_validator
 
 class SubscriptionLineCreate(BaseModel):
     product_id: int
+    variant_id: Optional[int] = None
     description: Optional[str] = None
     quantity: int = 1
-    unit_price: Decimal
+    unit_price: Optional[Decimal] = None
     tax_rate: Decimal = Decimal("0.00")
 
 
-class SubscriptionLineRead(SubscriptionLineCreate):
+class SubscriptionLineRead(BaseModel):
     id: int
+    product_id: int
+    variant_id: Optional[int] = None
+    description: Optional[str] = None
+    quantity: int
+    unit_price: Decimal
+    tax_rate: Decimal
     amount: Decimal
     model_config = {"from_attributes": True}
 

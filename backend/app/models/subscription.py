@@ -52,6 +52,7 @@ class SubscriptionLine(IDMixin, Base):
 
     subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False)
+    variant_id = Column(Integer, ForeignKey("product_variants.id", ondelete="SET NULL"), nullable=True)
     description = Column(String(500), nullable=True)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
@@ -61,3 +62,4 @@ class SubscriptionLine(IDMixin, Base):
     # Relationships
     subscription = relationship("Subscription", back_populates="lines")
     product = relationship("Product", lazy="joined")
+    variant = relationship("backend.app.models.variant.ProductVariant", lazy="joined")

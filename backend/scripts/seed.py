@@ -16,6 +16,7 @@ from backend.app.models.invoice import Invoice, InvoiceLine
 from backend.app.models.payment import Payment
 from backend.app.models.discount import DiscountRule
 from backend.app.models.quotation_template import QuotationTemplate, QuotationTemplateLine
+from backend.app.models.variant import ProductAttribute, ProductAttributeValue, ProductVariant
 
 
 def seed_demo_data():
@@ -296,6 +297,39 @@ def seed_demo_data():
             db.add_all([qt_line1, qt_line2])
             db.commit()
             print("[OK] Quotation template verified: Enterprise Starter Bundle (30 days validity).")
+
+        # 9. Product Attributes and Variants
+        attr_region = db.query(ProductAttribute).filter(ProductAttribute.name == "Hosting Region").first()
+        if not attr_region:
+            attr_region = ProductAttribute(name="Hosting Region")
+            db.add(attr_region)
+            db.flush()
+            val1 = ProductAttributeValue(attribute_id=attr_region.id, value="US-East")
+            val2 = ProductAttributeValue(attribute_id=attr_region.id, value="EU-Central")
+            val3 = ProductAttributeValue(attribute_id=attr_region.id, value="AP-South")
+            db.add_all([val1, val2, val3])
+            db.commit()
+            print("[OK] Product attribute verified: Hosting Region (3 values).")
+
+        var1 = db.query(ProductVariant).filter(ProductVariant.sku == "BS-US-EAST").first()
+        if not var1:
+            var1 = ProductVariant(
+                product_id=suite.id,
+                sku="BS-US-EAST",
+                name="Business Suite - US East Region",
+                price_delta=Decimal("150.00"),
+                is_active=True,
+            )
+            var2 = ProductVariant(
+                product_id=suite.id,
+                sku="BS-EU-CENTRAL",
+                name="Business Suite - EU Central Region (GDPR)",
+                price_delta=Decimal("200.00"),
+                is_active=True,
+            )
+            db.add_all([var1, var2])
+            db.commit()
+            print("[OK] Product variants verified: 2 variants for Business Suite.")
 
         print("\nAll database seeds successfully established in local PostgreSQL (oh_db)!")
     finally:
