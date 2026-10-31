@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getCurrentUser, clearAuth, getAuthToken } from '../services/api';
+import { getCurrentUser, clearAuth, getAuthToken, logoutUser } from '../services/api';
 import { 
   LayoutDashboard, 
   Package, 
@@ -23,8 +23,8 @@ export default function Navbar() {
   const token = getAuthToken();
   const isAuthenticated = Boolean(token || user);
 
-  const handleLogout = () => {
-    clearAuth();
+  const handleLogout = async () => {
+    await logoutUser();
     setMobileMenuOpen(false);
     navigate('/login');
   };

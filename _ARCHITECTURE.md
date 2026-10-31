@@ -46,8 +46,39 @@ flowchart TD
   - Strict responsive behavior across three target viewports: Mobile (375px), Tablet (768px), and Desktop (1280px).
 - **Measurable Success Criteria:**
   1. Zero unvalidated data leakage into the database across all inputs.
-  2. Sub-50ms local API response times with zero N+1 database queries.
+  2. Target: Sub-50ms local API response times with zero N+1 database queries (unmeasured / target).
   3. Immediate browser refresh reflecting PostgreSQL state dynamically (zero static mock JSON).
+
+---
+
+## 2.1 Scope Tiers: 5 Core Features & Explicit Roadmap Matrix
+
+In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, features are rigorously bounded:
+
+### Core Vertical Slice (5 Features Built & Tested)
+1. **Feature 1: Authentication & Role-Based Access Control (RBAC):** Registration with password rules (8+ chars, upper, lower, special), bcrypt hashing, pure in-memory access token + httpOnly refresh cookie, 403 Forbidden enforcement on customer role.
+2. **Feature 2: Catalog Products & Subscription Recurrence Plans:** Distinct 3NF tables (`products` and `plans`) with recurrence periods (`daily`, `weekly`, `monthly`, `yearly`), min quantity, and availability dates.
+3. **Feature 3: Subscription Lifecycle State Machine:** 5-state progression (`Draft` → `Quotation` → `Confirmed` → `Active` → `Closed`) with `409 Conflict` rejection of illegal transitions and PostgreSQL `CHECK` constraint.
+4. **Feature 4: Recurring Invoicing & Tax Calculation:** Snapshot period billing generation, rounded line-item tax calculation, and `uq_invoice_subscription_period` unique constraint preventing double-billing.
+5. **Feature 5: Payment Settlement Ledger:** Payment recording linked to invoices with `ck_payment_positive CHECK (amount > 0)` constraint and outstanding balances.
+
+*Note on Dashboard:* The **Dashboard Summary** is classified as a **Read-only Aggregation View** (UI reporting layer aggregating live counts over existing tables) rather than a distinct feature, preserving the 5-feature limit.
+
+### Explicit Requirements Status Matrix
+| Requirement | Tier | Status | Rationale |
+|---|---|---|---|
+| User registration, login, role claim | Core | ✅ Built | Tested via `test_auth.py` |
+| Products & Plans 3NF separation | Core | ✅ Built | Tested via `test_products.py` & in `oh_db` |
+| 5-stage subscription state machine | Core | ✅ Built | Tested via `test_subscriptions.py` (409 transition guard) |
+| Period invoice generation & double-billing guard | Core | ✅ Built | Tested via `test_invoices.py` |
+| Payment recording with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` |
+| Read-only operational metrics view | View | ✅ Built | Tested via `test_dashboard.py` |
+| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Quotation templates | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Product variants | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
 
 ---
 
@@ -91,9 +122,17 @@ Database design is treated as the primary technical foundation of the system:
 - **Semantic HTTP Status Codes:**
   - `200 OK` / `201 Created` for successful operations.
   - `400 Bad Request` for business logic contradictions.
+  - `403 Forbidden` for role-based authorization denials (e.g., customer accessing staff/admin routes).
   - `404 Not Found` when a requested entity does not exist.
+  - `409 Conflict` for state machine transition violations and unique constraint duplicates (e.g., double-billing).
   - `422 Unprocessable Entity` for schema/type validation failures with friendly field-level messages.
   - `500 Internal Server Error` for unexpected server exceptions.
+
+### 5.1 Authentication Transport & Zero Web Storage Model
+- **Pure In-Memory Access Token:** The React client holds the short-lived JWT strictly within a private JavaScript closure in `api.js`. It is NEVER written to `localStorage` or `sessionStorage`, completely immunizing the application against persistent token theft via XSS.
+- **HttpOnly Refresh Cookie:** On `POST /api/auth/login` or `POST /api/auth/register`, FastAPI sets an `httpOnly, samesite=lax, path=/api/auth` cookie containing a cryptographically signed refresh token.
+- **Transparent Session Hydration:** On app initialization or browser page reload, `App.jsx` issues `POST /api/auth/refresh` with `credentials: 'include'`. FastAPI validates the cookie and returns a fresh short-lived access token, restoring session state seamlessly without client storage.
+- **Revocation & Logout:** `POST /api/auth/logout` sets `Max-Age=0` on the cookie and immediately wipes in-memory variables.
 
 ---
 

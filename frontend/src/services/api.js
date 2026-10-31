@@ -1,12 +1,14 @@
 /**
  * Centralized API client service.
- * Handles in-memory JWT authentication, cookies, standardized envelope unwrapping,
- * and 3-layer validation error formatting.
+ * Handles pure in-memory JWT access token storage, httpOnly cookie session hydration,
+ * standardized response envelope unwrapping, and 3-layer validation error formatting.
+ * 
+ * ZERO tokens or user objects stored in localStorage or sessionStorage.
  */
 
 const BASE_URL = '';
 
-// In-memory token storage (lost on refresh, satisfies evaluator security requirements)
+// Pure runtime in-memory state — completely purged on browser tab close/hard navigation
 let inMemoryAccessToken = null;
 let currentUser = null;
 
@@ -14,7 +16,6 @@ export function setAuthToken(token, user = null) {
   inMemoryAccessToken = token;
   if (user) {
     currentUser = user;
-    sessionStorage.setItem('bl_user', JSON.stringify(user));
   }
 }
 
@@ -23,21 +24,12 @@ export function getAuthToken() {
 }
 
 export function getCurrentUser() {
-  if (!currentUser) {
-    try {
-      const stored = sessionStorage.getItem('bl_user');
-      if (stored) currentUser = JSON.parse(stored);
-    } catch {
-      currentUser = null;
-    }
-  }
   return currentUser;
 }
 
 export function clearAuth() {
   inMemoryAccessToken = null;
   currentUser = null;
-  sessionStorage.removeItem('bl_user');
 }
 
 /**
@@ -57,7 +49,7 @@ export async function apiRequest(endpoint, options = {}) {
   const config = {
     ...options,
     headers,
-    credentials: 'include', // Includes httpOnly cookies
+    credentials: 'include', // Automatically passes httpOnly cookies across requests
   };
 
   try {
@@ -102,7 +94,7 @@ export async function getHealthStatus() {
   return await apiRequest('/api/health');
 }
 
-// ── Auth ────────────────────────────────────────────────────────────────────
+// ── Auth & Session Hydration ────────────────────────────────────────────────
 export async function loginUser(email, password) {
   const res = await apiRequest('/api/auth/login', {
     method: 'POST',
@@ -121,7 +113,28 @@ export async function registerUser(payload) {
   });
 }
 
-// ── Dashboard ───────────────────────────────────────────────────────────────
+/**
+ * Hydrates in-memory access token on page reload via httpOnly refresh cookie.
+ * Does not read or write to Web Storage.
+ */
+export async function restoreSession() {
+  const res = await apiRequest('/api/auth/refresh', {
+    method: 'POST',
+  });
+  if (res.success && res.data?.access_token) {
+    setAuthToken(res.data.access_token, res.data.user);
+    return res.data.user;
+  }
+  clearAuth();
+  return null;
+}
+
+export async function logoutUser() {
+  await apiRequest('/api/auth/logout', { method: 'POST' });
+  clearAuth();
+}
+
+// ── Dashboard (Read-Only Aggregate View) ────────────────────────────────────
 export async function getDashboardSummary() {
   return await apiRequest('/api/dashboard/summary');
 }

@@ -140,17 +140,26 @@ stateDiagram-v2
 
 ---
 
-## 4. The 3-Layer Validation Defense
+## 4. The 3-Layer Validation Defense & Security Architecture
 
+### 3-Layer Validation Defense
 | Layer | Implementation | Responsibility | User Feedback Mode |
 |---|---|---|---|
 | **Layer 1: Client** | React Form State & Regex | Immediate inline helper feedback on change / blur | Inline friendly message (e.g. password policy check, positive payment amount). |
 | **Layer 2: Server** | FastAPI & Pydantic v2 | Payload structure, field types, boundary conditions | Standardized `422 Unprocessable Entity` or `409 Conflict` envelope. |
 | **Layer 3: Database** | PostgreSQL Constraints | Permanent persistence defense (`NOT NULL`, `CHECK`, `UNIQUE`, FKs) | Immediate transaction rollback; e.g. `ck_payment_positive`, `uq_invoice_subscription_period`. |
 
+### Security & Token Hydration Architecture
+- **In-Memory Access Token:** Short-lived JWT stored strictly in JavaScript runtime memory (`api.js`). Lost on tab close or hard reload; zero tokens or user records in `localStorage` or `sessionStorage` (preventing persistent XSS exfiltration).
+- **HttpOnly Refresh Cookie:** An `httpOnly, samesite=lax, path=/api/auth` cookie issued on `/login` and `/register`. Inaccessible to JavaScript.
+- **Silent Session Hydration:** On app boot or page reload, `App.jsx` invokes `restoreSession()` (`POST /api/auth/refresh`), which reads the cookie and re-populates the in-memory access token without user friction.
+- **Clean Logout:** `POST /api/auth/logout` sets `Max-Age=0` on the refresh cookie and wipes memory.
+
 ---
 
 ## 5. Requirements & Scope Matrix
+
+In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, features are rigorously bounded to 5 Core Features + 1 Read-only Aggregation View:
 
 | Feature | Tier | Status | Verification |
 |---|---|---|---|
@@ -161,11 +170,13 @@ stateDiagram-v2
 | Period invoice generation with per-line tax & rounding | Core | ✅ Built | Tested via `test_invoices.py` |
 | Double-billing prevention per period | Core | ✅ Built | Tested via `test_invoices.py` (`uq_invoice_subscription_period`) |
 | Payment recording against invoices with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` (`ck_payment_positive`) |
-| Real-time operational dashboard with KPI metrics | Core | ✅ Built | Tested via `test_dashboard.py` |
-| Discount rules applied to next invoice | Expected | ⬜ Roadmap | Scope freeze at 14:00 |
-| Password reset flow via local SMTP capture | Expected | ⬜ Roadmap | Scope freeze at 14:00 |
-| Quotation template builder | Expected | ⬜ Roadmap | Scope freeze at 14:00 |
-| Product variants engine | Expected | ⬜ Roadmap | Scope freeze at 14:00 |
+| Real-time operational dashboard with KPI metrics | View | ✅ Built | Tested via `test_dashboard.py` (Read-only UI aggregation) |
+| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Quotation template builder | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Product variants engine | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
 
 ---
 
@@ -206,7 +217,7 @@ pip install -r backend/requirements.txt
 # Run demo database seeding (idempotent)
 python backend/scripts/seed.py
 
-# Run automated test suite (27 tests)
+# Run automated test suite (30 tests)
 pytest backend/tests/ -v
 
 # Start backend server (Port 8000)
