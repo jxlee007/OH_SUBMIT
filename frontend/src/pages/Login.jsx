@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { loginUser } from '../services/api';
+import { loginUser, requestPasswordReset } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import notify from '../services/notify';
+import { Lock, Mail, ArrowRight, KeyRound, X } from 'lucide-react';
 
 export default function Login({ onAuthSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
 
   // Layer 1 Client-Side Quick Form Validation
@@ -39,11 +43,33 @@ export default function Login({ onAuthSuccess }) {
     setLoading(false);
 
     if (res.success) {
+      notify.success('Logged in successfully.');
       if (onAuthSuccess) onAuthSuccess(res.data?.user);
       navigate('/');
     } else {
-      setError(res.error || 'Authentication failed. Please verify your credentials.');
+      const errMsg = res.message || res.error || 'Authentication failed. Please verify your credentials.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    if (!resetEmail.trim() || !/\S+@\S+\.\S+/.test(resetEmail)) {
+      notify.error('Please enter a valid email address for password reset.');
+      return;
+    }
+
+    setResetLoading(true);
+    const res = await requestPasswordReset(resetEmail.trim());
+    setResetLoading(false);
+
+    notify.fromApiResponse(
+      res,
+      'If an account exists with this email address, a password reset link has been dispatched.'
+    );
+    setShowResetModal(false);
+    setResetEmail('');
   };
 
   const fillCredentials = (demoEmail, demoPassword) => {
@@ -90,6 +116,13 @@ export default function Login({ onAuthSuccess }) {
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Password
               </label>
+              <button
+                type="button"
+                onClick={() => setShowResetModal(true)}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline inline-flex items-center"
+              >
+                Forgot Password?
+              </button>
             </div>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-3.5" />
@@ -151,6 +184,56 @@ export default function Login({ onAuthSuccess }) {
           </Link>
         </p>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-semibold text-slate-900 dark:text-white">Reset Password</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="p-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Enter your account email to receive a password reset link.
+            </p>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <input
+                type="email"
+                required
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="name@brightloop.com"
+                className="w-full px-3.5 py-2.5 min-h-[44px] text-sm bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="px-4 py-2 min-h-[44px] text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="px-4 py-2 min-h-[44px] text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50"
+                >
+                  {resetLoading ? 'Sending...' : 'Send Link'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

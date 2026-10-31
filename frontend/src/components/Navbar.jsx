@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, getAuthToken, logoutUser } from '../services/api';
 import { useTheme } from '../utils/theme';
+import notify from '../services/notify';
 import { 
   LayoutDashboard, 
   Package, 
@@ -58,6 +59,7 @@ export default function Navbar({ user: propUser, onLogout: propOnLogout }) {
   const handleLogout = async () => {
     await logoutUser();
     if (propOnLogout) propOnLogout();
+    notify.info('Logged out successfully.');
     setMobileMenuOpen(false);
     navigate('/login');
   };

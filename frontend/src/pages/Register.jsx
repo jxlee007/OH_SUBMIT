@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { User, Mail, Lock, Check, X, Shield, ArrowRight } from 'lucide-react';
 
 export default function Register() {
@@ -30,15 +31,21 @@ export default function Register() {
 
     // Layer 1 Client Validation
     if (!fullName.trim()) {
-      setError('Please provide your full legal or business name.');
+      const msg = 'Please provide your full legal or business name.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      setError('Please provide a valid email address.');
+      const msg = 'Please provide a valid email address.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     if (!isPasswordValid) {
-      setError('Password does not meet all required security policy criteria.');
+      const msg = 'Password does not meet all required security policy criteria.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -52,10 +59,13 @@ export default function Register() {
     setLoading(false);
 
     if (res.success) {
+      notify.success('Account created successfully! Redirecting to login...');
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => navigate('/login'), 1200);
     } else {
-      setError(res.error || 'Registration failed.');
+      const errMsg = res.message || res.error || 'Registration failed.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 

@@ -7,6 +7,7 @@ import {
   getCurrentUser 
 } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { Receipt, Plus, AlertCircle, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function InvoicesPage() {
@@ -51,11 +52,15 @@ export default function InvoicesPage() {
   const handleGenerateInvoice = async (e) => {
     e.preventDefault();
     if (!selectedSubId) {
-      setError('Please select an active subscription.');
+      const msg = 'Please select an active subscription.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     if (!billingPeriodKey.trim()) {
-      setError('Billing period key (e.g., 2026-11) is required.');
+      const msg = 'Billing period key (e.g., 2026-11) is required.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -66,11 +71,15 @@ export default function InvoicesPage() {
     });
 
     if (res.success) {
-      setSuccess(`Invoice #${res.data?.id} generated successfully for period ${billingPeriodKey}.`);
+      const msg = `Invoice #${res.data?.id} generated successfully for period ${billingPeriodKey}.`;
+      setSuccess(msg);
+      notify.success(msg);
       setShowGenerateModal(false);
       fetchData();
     } else {
-      setError(res.error || 'Failed to generate invoice.');
+      const errMsg = res.message || res.error || 'Failed to generate invoice.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 
@@ -79,10 +88,14 @@ export default function InvoicesPage() {
     setSuccess('');
     const res = await updateInvoiceStatus(id, nextStatus);
     if (res.success) {
-      setSuccess(`Invoice #${id} transitioned to ${nextStatus}.`);
+      const msg = `Invoice #${id} transitioned to ${nextStatus}.`;
+      setSuccess(msg);
+      notify.success(msg);
       fetchData();
     } else {
-      setError(res.error || 'Failed to update status.');
+      const errMsg = res.message || res.error || 'Failed to update status.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 

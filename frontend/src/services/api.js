@@ -5,6 +5,7 @@
  * 
  * ZERO tokens or user objects stored in localStorage or sessionStorage.
  */
+import notify from './notify';
 
 const BASE_URL = '';
 
@@ -79,11 +80,12 @@ export async function apiRequest(endpoint, options = {}) {
       status: response.status,
     };
   } catch (err) {
+    notify.error('Network error. Please try again.');
     return {
       success: false,
       data: null,
       error: 'Network connection failed. Please ensure the backend server is running locally.',
-      message: err.message,
+      message: 'Network error. Please try again.',
       status: 0,
     };
   }
@@ -219,4 +221,67 @@ export async function createPayment(payload) {
 
 export async function getOutstandingInvoices() {
   return await apiRequest('/api/payments/outstanding');
+}
+
+// ── Password Reset ──────────────────────────────────────────────────────────
+export async function requestPasswordReset(email) {
+  return await apiRequest('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function completePasswordReset(token, new_password) {
+  return await apiRequest('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, new_password }),
+  });
+}
+
+// ── Discounts ───────────────────────────────────────────────────────────────
+export async function getDiscounts() {
+  return await apiRequest('/api/discounts');
+}
+
+export async function createDiscount(payload) {
+  return await apiRequest('/api/discounts', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteDiscount(id) {
+  return await apiRequest(`/api/discounts/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Variants ────────────────────────────────────────────────────────────────
+export async function getProductVariants(productId) {
+  return await apiRequest(`/api/variants/products/${productId}`);
+}
+
+export async function createProductVariant(productId, payload) {
+  return await apiRequest(`/api/variants/products/${productId}`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+// ── Quotation Templates ─────────────────────────────────────────────────────
+export async function getQuotationTemplates() {
+  return await apiRequest('/api/quotation-templates');
+}
+
+export async function createQuotationTemplate(payload) {
+  return await apiRequest('/api/quotation-templates', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function instantiateQuotationTemplate(templateId) {
+  return await apiRequest(`/api/quotation-templates/${templateId}/instantiate`, {
+    method: 'POST',
+  });
 }

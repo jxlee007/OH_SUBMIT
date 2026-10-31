@@ -8,6 +8,7 @@ import {
   getCurrentUser 
 } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { Repeat, Plus, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function SubscriptionsPage() {
@@ -67,17 +68,23 @@ export default function SubscriptionsPage() {
     setSuccess('');
     const res = await updateSubscriptionStatus(id, nextStatus);
     if (res.success) {
-      setSuccess(`Subscription #${id} successfully transitioned to ${nextStatus}.`);
+      const msg = `Subscription #${id} successfully transitioned to ${nextStatus}.`;
+      setSuccess(msg);
+      notify.success(msg);
       fetchData();
     } else {
-      setError(res.error || 'Failed to transition subscription status.');
+      const errMsg = res.message || res.error || 'Failed to transition subscription status.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 
   const handleCreateSubscription = async (e) => {
     e.preventDefault();
     if (!selectedPlanId) {
-      setError('Please select a valid plan.');
+      const msg = 'Please select a valid plan.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -98,11 +105,15 @@ export default function SubscriptionsPage() {
 
     const res = await createSubscription(payload);
     if (res.success) {
-      setSuccess(`Subscription ${res.data?.number} created in Draft.`);
+      const msg = `Subscription ${res.data?.number} created in Draft.`;
+      setSuccess(msg);
+      notify.success(msg);
       setShowCreateModal(false);
       fetchData();
     } else {
-      setError(res.error || 'Failed to create subscription.');
+      const errMsg = res.message || res.error || 'Failed to create subscription.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 

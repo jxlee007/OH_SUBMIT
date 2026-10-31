@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -9,6 +11,8 @@ import SubscriptionsPage from './pages/SubscriptionsPage';
 import InvoicesPage from './pages/InvoicesPage';
 import PaymentsPage from './pages/PaymentsPage';
 import { restoreSession, getCurrentUser } from './services/api';
+import notify from './services/notify';
+import { useTheme } from './utils/theme';
 
 function ProtectedRoute({ user, children }) {
   if (!user) {
@@ -27,6 +31,37 @@ function PublicOnlyRoute({ user, children }) {
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionHydrated, setSessionHydrated] = useState(false);
+  const { isDark } = useTheme();
+  const [isMdUp, setIsMdUp] = useState(
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMdUp(window.innerWidth >= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleOffline = () => {
+      notify.warning('You are offline. Changes will not be saved.', {
+        toastId: 'offline-status',
+      });
+    };
+    const handleOnline = () => {
+      notify.info('Back online.', {
+        toastId: 'online-status',
+      });
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
     // Silent hydration from httpOnly cookie on page load / browser refresh
@@ -54,6 +89,13 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
         <Navbar user={currentUser} onLogout={handleLogout} />
+        <ToastContainer
+          position={isMdUp ? 'top-right' : 'top-center'}
+          theme={isDark ? 'dark' : 'light'}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+        />
         <main className="flex-1 w-full max-w-full overflow-x-hidden">
           {sessionHydrated ? (
             <Routes>

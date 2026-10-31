@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getProducts, createProduct, getPlans, createPlan, getCurrentUser } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { Package, Plus, Calendar } from 'lucide-react';
 
 export default function ProductsPage() {
@@ -49,12 +50,16 @@ export default function ProductsPage() {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!newProductName.trim()) {
-      setError('Product name cannot be empty.');
+      const msg = 'Product name cannot be empty.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     const salesPriceNum = parseFloat(newSalesPrice);
     if (isNaN(salesPriceNum) || salesPriceNum < 0) {
-      setError('Sales price must be a non-negative number.');
+      const msg = 'Sales price must be a non-negative number.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -66,26 +71,34 @@ export default function ProductsPage() {
     });
 
     if (res.success) {
-      setSuccess(`Product "${newProductName}" created successfully.`);
+      const msg = `Product "${newProductName}" created successfully.`;
+      setSuccess(msg);
+      notify.success(msg);
       setShowProductModal(false);
       setNewProductName('');
       setNewSalesPrice('');
       setNewCostPrice('');
       fetchData();
     } else {
-      setError(res.error || 'Failed to create product.');
+      const errMsg = res.message || res.error || 'Failed to create product.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 
   const handleCreatePlan = async (e) => {
     e.preventDefault();
     if (!newPlanName.trim()) {
-      setError('Plan name cannot be empty.');
+      const msg = 'Plan name cannot be empty.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     const priceNum = parseFloat(newPlanPrice);
     if (isNaN(priceNum) || priceNum < 0) {
-      setError('Plan price must be a non-negative number.');
+      const msg = 'Plan price must be a non-negative number.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -97,13 +110,17 @@ export default function ProductsPage() {
     });
 
     if (res.success) {
-      setSuccess(`Plan "${newPlanName}" created successfully.`);
+      const msg = `Plan "${newPlanName}" created successfully.`;
+      setSuccess(msg);
+      notify.success(msg);
       setShowPlanModal(false);
       setNewPlanName('');
       setNewPlanPrice('');
       fetchData();
     } else {
-      setError(res.error || 'Failed to create plan.');
+      const errMsg = res.message || res.error || 'Failed to create plan.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 

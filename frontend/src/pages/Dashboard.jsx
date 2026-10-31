@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDashboardSummary, getCurrentUser } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { 
   Users, 
   IndianRupee, 
@@ -20,20 +21,23 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const user = getCurrentUser();
 
-  const loadSummary = async () => {
+  const loadSummary = async (showToast = false) => {
     setLoading(true);
     setError('');
     const res = await getDashboardSummary();
     setLoading(false);
     if (res.success && res.data) {
       setSummary(res.data);
+      if (showToast) {
+        notify.info('Dashboard metrics updated from database.');
+      }
     } else {
       setError(res.error || 'Failed to retrieve live reporting summary.');
     }
   };
 
   useEffect(() => {
-    loadSummary();
+    loadSummary(false);
   }, []);
 
   return (
@@ -50,7 +54,7 @@ export default function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={loadSummary}
+            onClick={() => loadSummary(true)}
             disabled={loading}
             className="flex items-center justify-center gap-2 px-3.5 py-2.5 min-h-[44px] text-sm font-medium bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 shadow-xs transition w-full sm:w-auto"
           >

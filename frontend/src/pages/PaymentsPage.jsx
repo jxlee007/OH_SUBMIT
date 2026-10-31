@@ -6,6 +6,7 @@ import {
   getCurrentUser 
 } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
+import notify from '../services/notify';
 import { CreditCard, Plus, Clock } from 'lucide-react';
 
 export default function PaymentsPage() {
@@ -57,11 +58,15 @@ export default function PaymentsPage() {
     // Layer 1 Client Check
     const amountNum = parseFloat(paymentAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      setError('Payment amount must be strictly greater than 0 (Layer 1 Defense).');
+      const msg = 'Payment amount must be strictly greater than 0 (Layer 1 Defense).';
+      setError(msg);
+      notify.error(msg);
       return;
     }
     if (!selectedInvoiceId) {
-      setError('Please choose an invoice to apply payment.');
+      const msg = 'Please choose an invoice to apply payment.';
+      setError(msg);
+      notify.error(msg);
       return;
     }
 
@@ -74,11 +79,15 @@ export default function PaymentsPage() {
     });
 
     if (res.success) {
-      setSuccess(`Payment of ₹${amountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })} recorded successfully!`);
+      const msg = `Payment of ₹${amountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })} recorded successfully!`;
+      setSuccess(msg);
+      notify.success(msg);
       setShowModal(false);
       fetchData();
     } else {
-      setError(res.error || 'Payment rejected.');
+      const errMsg = res.message || res.error || 'Payment rejected.';
+      setError(errMsg);
+      notify.error(errMsg);
     }
   };
 
