@@ -17,3 +17,6 @@ pytest-asyncio==1.4.1
 apscheduler==3.11.3
 # DB migrations (installed, wired if needed)
 alembic==1.20.1
+# PDF Generation & Testing
+reportlab==5.1.0
+pypdf==6.21.4

@@ -85,3 +85,34 @@ def test_logout_endpoint(client):
     logout_resp = client.post(LOGOUT_URL, cookies={"refresh_token": login_resp.cookies["refresh_token"]})
     assert logout_resp.status_code == 200, logout_resp.text
     assert logout_resp.json()["data"]["logged_out"] is True
+
+
+def test_non_admin_cannot_create_staff_returns_403(client):
+    """Anonymous or non-admin user registering with role='staff' → 403 Forbidden."""
+    resp = client.post(
+        REGISTER_URL,
+        json={
+            "email": "rogue_staff@brightloop.com",
+            "password": "SecureStaff!123",
+            "full_name": "Rogue Staff",
+            "role": "staff",
+        },
+    )
+    assert resp.status_code == 403
+    assert "Only administrators" in resp.text
+
+
+def test_admin_can_create_staff_happy_path(client, admin_token):
+    """Authenticated admin registering staff account → 201 Created."""
+    resp = client.post(
+        REGISTER_URL,
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "email": "legit_staff@brightloop.com",
+            "password": "ValidStaff@123",
+            "full_name": "Legit Staff User",
+            "role": "staff",
+        },
+    )
+    assert resp.status_code == 201
+    assert resp.json()["data"]["role"] == "staff"

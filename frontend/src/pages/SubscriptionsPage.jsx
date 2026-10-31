@@ -8,7 +8,7 @@ import {
   getCurrentUser 
 } from '../services/api';
 import AlertBanner from '../components/AlertBanner';
-import { Repeat, Plus, CheckCircle, ArrowRight, XCircle, FileSpreadsheet } from 'lucide-react';
+import { Repeat, Plus, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function SubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -18,6 +18,7 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const user = getCurrentUser();
 
   // Create Subscription Form State
@@ -81,7 +82,7 @@ export default function SubscriptionsPage() {
     }
 
     const payload = {
-      customer_id: user?.id || 3, // fallback to customer seed id
+      customer_id: user?.id || 3,
       plan_id: parseInt(selectedPlanId),
       start_date: startDate,
       payment_terms: paymentTerms,
@@ -107,33 +108,35 @@ export default function SubscriptionsPage() {
 
   const statusBadge = (status) => {
     const styles = {
-      draft: 'bg-slate-100 text-slate-700 border-slate-200',
-      quotation: 'bg-sky-50 text-sky-800 border-sky-200',
-      confirmed: 'bg-amber-50 text-amber-800 border-amber-200',
-      active: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-      closed: 'bg-rose-50 text-rose-800 border-rose-200',
+      draft: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+      quotation: 'bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+      confirmed: 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+      active: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+      closed: 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800',
     };
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase border tracking-wider ${styles[status] || styles.draft}`}>
+      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase border tracking-wider shrink-0 ${styles[status] || styles.draft}`}>
         {status}
       </span>
     );
   };
 
+  const statuses = ['', 'draft', 'quotation', 'confirmed', 'active', 'closed'];
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Subscriptions</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Subscriptions</h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Strict State Machine: Draft → Quotation → Confirmed → Active → Closed
           </p>
         </div>
         {user?.role !== 'customer' && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition"
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 min-h-[44px] text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>New Subscription</span>
@@ -144,107 +147,124 @@ export default function SubscriptionsPage() {
       <AlertBanner type="error" message={error} onClose={() => setError('')} />
       <AlertBanner type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2">
-        {['', 'draft', 'quotation', 'confirmed', 'active', 'closed'].map((st) => (
+      {/* Filter Disclosure (< md collapsible, md+ inline) */}
+      <div className="space-y-2">
+        <div className="md:hidden">
           <button
-            key={st}
-            onClick={() => setStatusFilter(st)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition ${
-              statusFilter === st
-                ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="w-full flex items-center justify-between px-4 py-2.5 min-h-[44px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 shadow-xs"
           >
-            {st ? st : 'All Statuses'}
+            <span className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>Filter: {statusFilter ? statusFilter.toUpperCase() : 'ALL STATUSES'}</span>
+            </span>
+            {filtersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
-        ))}
+        </div>
+
+        <div className={`${filtersOpen ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-2 pt-2 md:pt-0`}>
+          {statuses.map((st) => (
+            <button
+              key={st}
+              onClick={() => {
+                setStatusFilter(st);
+                setFiltersOpen(false);
+              }}
+              className={`px-3.5 py-2 min-h-[44px] rounded-lg text-xs font-semibold uppercase tracking-wider transition ${
+                statusFilter === st
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+              }`}
+            >
+              {st ? st : 'All Statuses'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Table (Responsive 768px / 1280px) */}
-      <div className="hidden sm:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50/70 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
-            <tr>
-              <th className="px-5 py-3.5">Number</th>
-              <th className="px-5 py-3.5">Customer / Terms</th>
-              <th className="px-5 py-3.5">Start Date</th>
-              <th className="px-5 py-3.5">Lifecycle State</th>
-              <th className="px-5 py-3.5 text-right">Allowed State Transitions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {subscriptions.map((sub) => (
-              <tr key={sub.id} className="hover:bg-slate-50/50 transition">
-                <td className="px-5 py-3.5 font-bold text-slate-900 font-mono text-xs">{sub.number}</td>
-                <td className="px-5 py-3.5">
-                  <div className="text-slate-900 font-medium">Customer #{sub.customer_id}</div>
-                  <div className="text-xs text-slate-400">{sub.payment_terms || 'Standard'}</div>
-                </td>
-                <td className="px-5 py-3.5 text-xs text-slate-600">{sub.start_date}</td>
-                <td className="px-5 py-3.5">{statusBadge(sub.status)}</td>
-                <td className="px-5 py-3.5 text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    {sub.status === 'draft' && (
-                      <button
-                        onClick={() => handleStatusTransition(sub.id, 'quotation')}
-                        className="px-2.5 py-1 text-xs font-medium bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 rounded-md transition"
-                        title="Send Quotation to Customer"
-                      >
-                        Send Quotation
-                      </button>
-                    )}
-                    {sub.status === 'quotation' && (
-                      <button
-                        onClick={() => handleStatusTransition(sub.id, 'confirmed')}
-                        className="px-2.5 py-1 text-xs font-medium bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-md transition"
-                        title="Customer Confirms Quotation"
-                      >
-                        Confirm
-                      </button>
-                    )}
-                    {sub.status === 'confirmed' && (
-                      <button
-                        onClick={() => handleStatusTransition(sub.id, 'active')}
-                        className="px-2.5 py-1 text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md transition"
-                        title="Activate Subscription"
-                      >
-                        Activate
-                      </button>
-                    )}
-                    {sub.status !== 'closed' && (
-                      <button
-                        onClick={() => handleStatusTransition(sub.id, 'closed')}
-                        className="px-2 py-1 text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition"
-                        title="Close Subscription"
-                      >
-                        Close
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Structured Div Grid for md (>= 768px) and lg (>= 1280px) */}
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
+        <div className="grid grid-cols-12 gap-4 px-5 py-3.5 bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+          <div className="col-span-2">Number</div>
+          <div className="col-span-3">Customer / Terms</div>
+          <div className="col-span-2">Start Date</div>
+          <div className="col-span-2">Lifecycle State</div>
+          <div className="col-span-3 text-right">Allowed Transitions</div>
+        </div>
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {subscriptions.map((sub) => (
+            <div key={sub.id} className="grid grid-cols-12 gap-4 px-5 py-3.5 items-center hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+              <div className="col-span-2 font-bold text-slate-900 dark:text-white font-mono text-xs truncate">
+                {sub.number}
+              </div>
+              <div className="col-span-3">
+                <div className="text-slate-900 dark:text-white font-medium text-sm">Customer #{sub.customer_id}</div>
+                <div className="text-xs text-slate-400 dark:text-slate-500">{sub.payment_terms || 'Standard'}</div>
+              </div>
+              <div className="col-span-2 text-xs text-slate-600 dark:text-slate-400">{sub.start_date}</div>
+              <div className="col-span-2">{statusBadge(sub.status)}</div>
+              <div className="col-span-3 text-right">
+                <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                  {sub.status === 'draft' && (
+                    <button
+                      onClick={() => handleStatusTransition(sub.id, 'quotation')}
+                      className="px-2.5 py-1 text-xs font-medium bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-md transition"
+                    >
+                      Send Quotation
+                    </button>
+                  )}
+                  {sub.status === 'quotation' && (
+                    <button
+                      onClick={() => handleStatusTransition(sub.id, 'confirmed')}
+                      className="px-2.5 py-1 text-xs font-medium bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-md transition"
+                    >
+                      Confirm
+                    </button>
+                  )}
+                  {sub.status === 'confirmed' && (
+                    <button
+                      onClick={() => handleStatusTransition(sub.id, 'active')}
+                      className="px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-md transition"
+                    >
+                      Activate
+                    </button>
+                  )}
+                  {sub.status !== 'closed' && (
+                    <button
+                      onClick={() => handleStatusTransition(sub.id, 'closed')}
+                      className="px-2 py-1 text-xs font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* 375px Mobile View */}
-      <div className="sm:hidden space-y-3">
+      {/* Card View below md (< 768px, phone base & sm) with Full-Width Action Buttons */}
+      <div className="md:hidden space-y-3">
         {subscriptions.map((sub) => (
-          <div key={sub.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="font-mono font-bold text-xs text-slate-900">{sub.number}</span>
+          <div key={sub.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 transition-colors">
+            <div className="flex justify-between items-start gap-2">
+              <span className="font-mono font-bold text-xs text-slate-900 dark:text-white break-all">
+                {sub.number}
+              </span>
               {statusBadge(sub.status)}
             </div>
-            <div className="text-xs text-slate-500">
-              <div>Customer #{sub.customer_id} • Starts {sub.start_date}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 space-y-0.5">
+              <div>Customer #{sub.customer_id} • Terms: {sub.payment_terms || 'Standard'}</div>
+              <div>Starts: {sub.start_date}</div>
             </div>
-            <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
+
+            {/* Actions as Full-Width Buttons (min 44px touch target) */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
               {sub.status === 'draft' && (
                 <button
                   onClick={() => handleStatusTransition(sub.id, 'quotation')}
-                  className="px-3 py-1 text-xs font-semibold bg-sky-100 text-sky-800 rounded-md"
+                  className="w-full min-h-[44px] flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg transition"
                 >
                   Send Quotation
                 </button>
@@ -252,25 +272,25 @@ export default function SubscriptionsPage() {
               {sub.status === 'quotation' && (
                 <button
                   onClick={() => handleStatusTransition(sub.id, 'confirmed')}
-                  className="px-3 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-md"
+                  className="w-full min-h-[44px] flex items-center justify-center px-4 py-2 text-sm font-semibold bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg transition"
                 >
-                  Confirm
+                  Confirm Quotation
                 </button>
               )}
               {sub.status === 'confirmed' && (
                 <button
                   onClick={() => handleStatusTransition(sub.id, 'active')}
-                  className="px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 rounded-md"
+                  className="w-full min-h-[44px] flex items-center justify-center px-4 py-2 text-sm font-semibold bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg transition"
                 >
-                  Activate
+                  Activate Subscription
                 </button>
               )}
               {sub.status !== 'closed' && (
                 <button
                   onClick={() => handleStatusTransition(sub.id, 'closed')}
-                  className="px-2.5 py-1 text-xs font-medium text-rose-600 border border-rose-200 rounded-md"
+                  className="w-full min-h-[44px] flex items-center justify-center px-4 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 rounded-lg hover:bg-rose-100 transition"
                 >
-                  Close
+                  Close Subscription
                 </button>
               )}
             </div>
@@ -278,18 +298,20 @@ export default function SubscriptionsPage() {
         ))}
       </div>
 
-      {/* Create Modal */}
+      {/* Create Modal (Single column mobile, two column md+) */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100 space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Create Subscription (Draft)</h3>
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 my-auto space-y-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Create Subscription (Draft)</h3>
             <form onSubmit={handleCreateSubscription} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Select Plan</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">
+                  Select Plan
+                </label>
                 <select
                   value={selectedPlanId}
                   onChange={(e) => setSelectedPlanId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg font-medium"
+                  className="w-full px-3.5 py-2.5 min-h-[44px] text-sm bg-slate-50/50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium"
                 >
                   {plans.map((pl) => (
                     <option key={pl.id} value={pl.id}>
@@ -299,32 +321,38 @@ export default function SubscriptionsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Start Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">
+                    Start Date
+                  </label>
                   <input
                     type="date"
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                    className="w-full px-3.5 py-2.5 min-h-[44px] text-sm bg-slate-50/50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Payment Terms</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1.5">
+                    Payment Terms
+                  </label>
                   <input
                     type="text"
                     value={paymentTerms}
                     onChange={(e) => setPaymentTerms(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                    className="w-full px-3.5 py-2.5 min-h-[44px] text-sm bg-slate-50/50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="text-xs font-bold text-slate-700 uppercase">Subscription Line Item</div>
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase">
+                  Subscription Line Item
+                </div>
                 <div>
-                  <label className="block text-xs text-slate-600 mb-1">Product</label>
+                  <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Product</label>
                   <select
                     value={selectedProductId}
                     onChange={(e) => {
@@ -332,7 +360,7 @@ export default function SubscriptionsPage() {
                       const p = products.find((x) => x.id === parseInt(e.target.value));
                       if (p) setLineUnitPrice(p.sales_price);
                     }}
-                    className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white"
+                    className="w-full px-3.5 py-2 min-h-[44px] text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                   >
                     {products.map((p) => (
                       <option key={p.id} value={p.id}>
@@ -341,51 +369,51 @@ export default function SubscriptionsPage() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-slate-600 mb-1">Qty</label>
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Qty</label>
                     <input
                       type="number"
                       min="1"
                       value={lineQuantity}
                       onChange={(e) => setLineQuantity(e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-3 py-2 min-h-[44px] text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-600 mb-1">Price (₹)</label>
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Price (₹)</label>
                     <input
                       type="number"
                       step="0.01"
                       value={lineUnitPrice}
                       onChange={(e) => setLineUnitPrice(e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-3 py-2 min-h-[44px] text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-600 mb-1">Tax (%)</label>
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Tax (%)</label>
                     <input
                       type="number"
                       step="0.1"
                       value={lineTaxRate}
                       onChange={(e) => setLineTaxRate(e.target.value)}
-                      className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white"
+                      className="w-full px-3 py-2 min-h-[44px] text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm"
+                  className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition"
                 >
                   Create Subscription
                 </button>

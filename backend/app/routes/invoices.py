@@ -1,5 +1,5 @@
 """Invoice routes."""
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException, Response
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -9,6 +9,7 @@ from backend.app.schemas.common import StandardResponse, ok
 from backend.app.services.invoice_service import (
     generate_invoice, list_invoices, get_invoice, update_invoice_status,
 )
+from backend.app.services.pdf_service import render_invoice_pdf
 from backend.app.services.auth_service import get_current_user, require_roles
 from backend.app.models.user import User
 
@@ -40,8 +41,43 @@ def create_invoice(
 
 
 @router.get("/{invoice_id}", response_model=StandardResponse[InvoiceRead])
-def read_invoice(invoice_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return ok(InvoiceRead.model_validate(get_invoice(invoice_id, db)))
+def read_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    inv = get_invoice(invoice_id, db)
+    if current_user.role == "customer" and inv.customer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this invoice.",
+        )
+    return ok(InvoiceRead.model_validate(inv))
+
+
+@router.get("/{invoice_id}/pdf")
+def download_invoice_pdf(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download invoice rendered as pure PDF document.
+    Admin & staff may download any invoice; customers may only download their own (403).
+    """
+    inv = get_invoice(invoice_id, db)
+    if current_user.role == "customer" and inv.customer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this invoice.",
+        )
+    pdf_bytes = render_invoice_pdf(inv)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice-{inv.id}.pdf",
+        },
+    )
 
 
 @router.patch("/{invoice_id}/status", response_model=StandardResponse[InvoiceRead])

@@ -5,12 +5,13 @@ from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 from backend.app.models.base import IDMixin, TimestampMixin
 
-INVOICE_STATUS = ("draft", "confirmed", "paid")
+INVOICE_STATUS = ("draft", "confirmed", "paid", "cancelled")
 
 INVOICE_STATUS_TRANSITIONS: dict[str, list[str]] = {
-    "draft": ["confirmed"],
-    "confirmed": ["paid"],
+    "draft": ["confirmed", "cancelled"],
+    "confirmed": ["paid", "cancelled"],
     "paid": [],
+    "cancelled": [],
 }
 
 
@@ -26,7 +27,7 @@ class Invoice(IDMixin, TimestampMixin, Base):
             name="uq_invoice_subscription_period",
         ),
         CheckConstraint(
-            "status IN ('draft', 'confirmed', 'paid')",
+            "status IN ('draft', 'confirmed', 'paid', 'cancelled')",
             name="ck_invoice_status",
         ),
     )

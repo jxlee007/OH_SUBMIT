@@ -22,8 +22,30 @@ REFRESH_COOKIE = "refresh_token"
 
 
 @router.post("/register", response_model=StandardResponse[UserOut], status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    """Register a new user. Returns 409 on duplicate email, 422 on policy violation."""
+def register(payload: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    """Register a new user. Public registration is restricted to customer accounts.
+    Staff and admin accounts may strictly only be created by authenticated administrators (403)."""
+    if payload.role in ("admin", "staff"):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can create staff or admin accounts.",
+            )
+        token = auth_header.split(" ", 1)[1]
+        try:
+            claims = decode_token(token)
+            if claims.get("role") != "admin":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only administrators can create staff or admin accounts.",
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can create staff or admin accounts.",
+            )
+
     user = register_user(payload, db)
     return ok(UserOut.model_validate(user), "Registration successful.")
 

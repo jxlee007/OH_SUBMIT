@@ -62,6 +62,8 @@ def create_tables() -> None:
             "ALTER TABLE invoice_lines ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00;",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_pause BOOLEAN NOT NULL DEFAULT FALSE;",
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_renew BOOLEAN NOT NULL DEFAULT TRUE;",
+            "ALTER TABLE invoices DROP CONSTRAINT IF EXISTS ck_invoice_status;",
+            "ALTER TABLE invoices ADD CONSTRAINT ck_invoice_status CHECK (status IN ('draft', 'confirmed', 'paid', 'cancelled'));",
         ]
         for sql in migrations:
             try:

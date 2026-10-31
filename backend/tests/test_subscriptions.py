@@ -105,3 +105,33 @@ def test_create_subscription_unknown_customer_returns_422(client, admin_token, d
         headers=auth_header(admin_token),
     )
     assert r.status_code == 422, r.text
+
+
+def test_customer_cannot_read_another_customers_subscription_returns_403(client, admin_token, db_session):
+    """Customer accessing another customer's subscription via GET /subscriptions/{id} returns 403."""
+    from backend.app.models.user import User
+    from backend.app.core.security import hash_password, create_access_token
+
+    cid, pid = _seed_customer_and_plan(db_session)
+    other_customer = User(email="other_sub_cust@test.com", hashed_password=hash_password("Sec@12345"), full_name="Other Sub Cust", role="customer")
+    db_session.add(other_customer)
+    db_session.commit()
+    other_token = create_access_token({"sub": str(other_customer.id), "role": "customer"})
+    owner_token = create_access_token({"sub": str(cid), "role": "customer"})
+
+    # Admin creates subscription for owner
+    sub_res = client.post(
+        SUBS_URL,
+        json={"customer_id": cid, "plan_id": pid, "start_date": str(date.today())},
+        headers=auth_header(admin_token),
+    )
+    sub_id = sub_res.json()["data"]["id"]
+
+    # Owner can read
+    r_owner = client.get(f"{SUBS_URL}/{sub_id}", headers={"Authorization": f"Bearer {owner_token}"})
+    assert r_owner.status_code == 200
+
+    # Other customer gets 403 Forbidden
+    r_other = client.get(f"{SUBS_URL}/{sub_id}", headers={"Authorization": f"Bearer {other_token}"})
+    assert r_other.status_code == 403
+    assert "Access denied" in r_other.text

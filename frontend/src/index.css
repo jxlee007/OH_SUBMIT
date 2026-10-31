@@ -3,15 +3,30 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light dark;
   --color-primary: #714B67;
   --color-accent: #017E84;
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   font-family: var(--font-family-sans);
-  background-color: #f8fafc;
-  color: #0f172a;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Ensure no horizontal overflow across any child elements on mobile */
+* {
+  box-sizing: border-box;
+}
+
+/* Focus visibility ring tokens */
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }

@@ -1,7 +1,7 @@
 """Subscription routes."""
 from datetime import date
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
@@ -42,8 +42,18 @@ def add_subscription(
 
 
 @router.get("/{sub_id}", response_model=StandardResponse[SubscriptionRead])
-def read_subscription(sub_id: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
-    return ok(SubscriptionRead.model_validate(get_subscription(sub_id, db)))
+def read_subscription(
+    sub_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sub = get_subscription(sub_id, db)
+    if current_user.role == "customer" and sub.customer_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to this subscription.",
+        )
+    return ok(SubscriptionRead.model_validate(sub))
 
 
 @router.patch("/{sub_id}/status", response_model=StandardResponse[SubscriptionRead])

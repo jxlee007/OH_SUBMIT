@@ -93,3 +93,67 @@ def test_invalid_invoice_status_transition_returns_400(client, admin_token, db_s
     inv_id = inv_resp.json()["data"]["id"]
     r = client.patch(f"{INVOICES_URL}/{inv_id}/status", json={"status": "paid"}, headers=auth_header(admin_token))
     assert r.status_code == 400, r.text
+
+
+def test_cancel_draft_or_confirmed_invoice_happy_path(client, admin_token, db_session):
+    """PATCH invoice status: draft → cancelled or confirmed → cancelled → 200."""
+    sub_id, _ = _seed_active_subscription(db_session)
+    inv_resp = client.post(
+        INVOICES_URL,
+        json={"subscription_id": sub_id, "billing_period_key": "2027-CANCEL-1"},
+        headers=auth_header(admin_token),
+    )
+    inv_id = inv_resp.json()["data"]["id"]
+    r = client.patch(f"{INVOICES_URL}/{inv_id}/status", json={"status": "cancelled"}, headers=auth_header(admin_token))
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["status"] == "cancelled"
+
+
+def test_cancel_paid_invoice_returns_409(client, admin_token, db_session):
+    """PATCH invoice status: paid → cancelled → 409 Conflict."""
+    sub_id, _ = _seed_active_subscription(db_session)
+    inv_resp = client.post(
+        INVOICES_URL,
+        json={"subscription_id": sub_id, "billing_period_key": "2027-PAID-CANCEL"},
+        headers=auth_header(admin_token),
+    )
+    inv_id = inv_resp.json()["data"]["id"]
+    # Confirm invoice
+    client.patch(f"{INVOICES_URL}/{inv_id}/status", json={"status": "confirmed"}, headers=auth_header(admin_token))
+    # Mark paid
+    client.patch(f"{INVOICES_URL}/{inv_id}/status", json={"status": "paid"}, headers=auth_header(admin_token))
+
+    # Attempting to cancel a paid invoice must fail with 409 Conflict
+    cancel_resp = client.patch(f"{INVOICES_URL}/{inv_id}/status", json={"status": "cancelled"}, headers=auth_header(admin_token))
+    assert cancel_resp.status_code == 409, cancel_resp.text
+    assert "already been paid" in cancel_resp.text.lower()
+
+
+def test_customer_cannot_read_another_customers_invoice_returns_403(client, admin_token, db_session):
+    """Customer accessing another customer's invoice via GET /invoices/{id} returns 403."""
+    from backend.app.models.user import User
+    from backend.app.core.security import hash_password, create_access_token
+
+    sub_id, owner_id = _seed_active_subscription(db_session)
+    other_customer = User(email="other_cust@test.com", hashed_password=hash_password("Sec@12345"), full_name="Other Cust", role="customer")
+    db_session.add(other_customer)
+    db_session.commit()
+    other_token = create_access_token({"sub": str(other_customer.id), "role": "customer"})
+    owner_token = create_access_token({"sub": str(owner_id), "role": "customer"})
+
+    # Admin creates invoice for owner
+    inv_res = client.post(
+        INVOICES_URL,
+        json={"subscription_id": sub_id, "billing_period_key": "2027-SCOPING"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    inv_id = inv_res.json()["data"]["id"]
+
+    # Owner can read
+    r_owner = client.get(f"{INVOICES_URL}/{inv_id}", headers={"Authorization": f"Bearer {owner_token}"})
+    assert r_owner.status_code == 200
+
+    # Other customer gets 403 Forbidden
+    r_other = client.get(f"{INVOICES_URL}/{inv_id}", headers={"Authorization": f"Bearer {other_token}"})
+    assert r_other.status_code == 403
+    assert "Access denied" in r_other.text
