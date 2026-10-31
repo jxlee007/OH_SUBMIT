@@ -46,7 +46,7 @@ flowchart TD
   - Strict responsive behavior across three target viewports: Mobile (375px), Tablet (768px), and Desktop (1280px).
 - **Measurable Success Criteria:**
   1. Zero unvalidated data leakage into the database across all inputs.
-  2. Target: Sub-50ms local API response times with zero N+1 database queries (unmeasured / target).
+  2. Target: Page load and query response under 2 seconds with thousands of subscriptions (unmeasured / target).
   3. Immediate browser refresh reflecting PostgreSQL state dynamically (zero static mock JSON).
 
 ---
@@ -65,20 +65,20 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 *Note on Dashboard:* The **Dashboard Summary** is classified as a **Read-only Aggregation View** (UI reporting layer aggregating live counts over existing tables) rather than a distinct feature, preserving the 5-feature limit.
 
 ### Explicit Requirements Status Matrix
-| Requirement | Tier | Status | Rationale |
+| Requirement | Tier | Status | Specification (One-Line Summary) |
 |---|---|---|---|
 | User registration, login, role claim | Core | ✅ Built | Tested via `test_auth.py` |
 | Products & Plans 3NF separation | Core | ✅ Built | Tested via `test_products.py` & in `oh_db` |
 | 5-stage subscription state machine | Core | ✅ Built | Tested via `test_subscriptions.py` (409 transition guard) |
 | Period invoice generation & double-billing guard | Core | ✅ Built | Tested via `test_invoices.py` |
 | Payment recording with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` |
-| Read-only operational metrics view | View | ✅ Built | Tested via `test_dashboard.py` |
-| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Quotation templates | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Product variants | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Read-only operational metrics view | View | ✅ Built | Tested via `test_dashboard.py` (No state mutations) |
+| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Admin-created discount rules with fixed/percentage value, minimum purchase/quantity, validity dates, and usage limits. |
+| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Self-service password reset request via local SMTP capture (`aiosmtpd`) with secure token expiry. |
+| Quotation templates | Expected | ⬜ Not built (Roadmap) | Predefined multi-line product bundles with configurable quotation validity duration (number of days). |
+| Product variants | Expected | ⬜ Not built (Roadmap) | Multi-attribute product variant engine (tier, user seats, hosting region) with price differentials. |
+| Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Offline-first HTML-to-PDF invoice printing and asynchronous background email delivery. |
+| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Daily automated billing engine evaluating plan-level `can_pause` and `can_renew` configuration flags. |
 
 ---
 

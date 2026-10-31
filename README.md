@@ -161,31 +161,35 @@ stateDiagram-v2
 
 In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, features are rigorously bounded to 5 Core Features + 1 Read-only Aggregation View:
 
+### Core Vertical Slice (Built & Verified)
 | Feature | Tier | Status | Verification |
 |---|---|---|---|
-| Registration with unique email & password policy | Core | ✅ Built | Tested via `test_auth.py` |
+| Registration with unique email & password policy (8+ chars, upper, lower, special) | Core | ✅ Built | Tested via `test_auth.py` |
 | Role-based access control (`admin`, `staff`, `customer`) | Core | ✅ Built | Tested via `test_products.py`, `test_subscriptions.py`, `test_payments.py` (403 assertions) |
-| Products & Plans separation with billing periods | Core | ✅ Built | Tested via `test_products.py` & verified in `oh_db` |
-| Subscription 5-state lifecycle with 409 transition guard | Core | ✅ Built | Tested via `test_subscriptions.py` |
-| Period invoice generation with per-line tax & rounding | Core | ✅ Built | Tested via `test_invoices.py` |
-| Double-billing prevention per period | Core | ✅ Built | Tested via `test_invoices.py` (`uq_invoice_subscription_period`) |
-| Payment recording against invoices with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` (`ck_payment_positive`) |
-| Real-time operational dashboard with KPI metrics | View | ✅ Built | Tested via `test_dashboard.py` (Read-only UI aggregation) |
-| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Quotation template builder | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Product variants engine | Expected | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
-| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Scope freeze at 14:00 |
+| Products & Plans separation with billing periods (`daily`, `weekly`, `monthly`, `yearly`) | Core | ✅ Built | Tested via `test_products.py` & verified in `oh_db` |
+| Subscription 5-state lifecycle (`draft` → `quotation` → `confirmed` → `active` → `closed`) with 409 transition guard | Core | ✅ Built | Tested via `test_subscriptions.py` |
+| Period invoice generation with per-line tax & half-up rounding | Core | ✅ Built | Tested via `test_invoices.py` |
+| Double-billing prevention per period (`uq_invoice_subscription_period`) | Core | ✅ Built | Tested via `test_invoices.py` |
+| Payment recording against invoices with `ck_payment_positive` (`amount > 0`) | Core | ✅ Built | Tested via `test_payments.py` |
+| Real-time operational dashboard with KPI metrics (Read-only UI aggregation) | View | ✅ Built | Tested via `test_dashboard.py` (No state mutations) |
+
+### Expected & Stretch Roadmap (Not Built — Post-Sprint)
+| Requirement | Tier | Status | Specification (One-Line Summary) |
+|---|---|---|---|
+| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Admin-created discount rules with fixed/percentage value, minimum purchase/quantity, validity dates, and usage limits. |
+| Password reset flow | Expected | ⬜ Not built (Roadmap) | Self-service password reset request via local SMTP capture (`aiosmtpd`) with secure token expiry. |
+| Quotation templates | Expected | ⬜ Not built (Roadmap) | Predefined multi-line product bundles with configurable quotation validity duration (number of days). |
+| Product variants | Expected | ⬜ Not built (Roadmap) | Multi-attribute product variant engine (tier, user seats, hosting region) with price differentials. |
+| Printed PDFs & real email delivery | Stretch | ⬜ Not built (Roadmap) | Offline-first HTML-to-PDF invoice printing and asynchronous background email delivery. |
+| Pause and renew automation | Stretch | ⬜ Not built (Roadmap) | Daily automated billing engine evaluating plan-level `can_pause` and `can_renew` configuration flags. |
 
 ---
 
 ## 6. Performance Targets (Honest Metrics)
 
 In compliance with the Hackathon Agent Rules:
-- **Target (API Latency):** Sub-50ms local API response times under standard operational load *(Target / to be verified via benchmark tooling)*.
-- **Target (Scalability):** Sub-2s dashboard response under 10,000+ subscription records *(Target / to be verified via EXPLAIN ANALYZE index scans)*.
-- **Zero Benchmarks Fabricated:** All metrics presented during review reflect actual live command output only.
+- **Target (Scalability):** Page load and query response under 2 seconds with thousands of subscriptions *(Target / unmeasured / to be verified on scaled dataset)*.
+- **Zero Fabricated Benchmarks:** No performance numbers appear in documentation, code, or demo unless a live command printed them on screen during the sprint. All unmeasured projections are voiced and written strictly as "Target".
 
 ---
 
@@ -219,8 +223,55 @@ python backend/scripts/seed.py
 
 # Run automated test suite (30 tests)
 pytest backend/tests/ -v
+```
+
+#### Live Test Suite Terminal Output (Verified 30/30 Passing)
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.2.0, pluggy-1.7.0 -- A:\SAAS\OH_SUBMIT\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: A:\SAAS\OH_SUBMIT
+configfile: pytest.ini
+plugins: anyio-3.7.1, asyncio-1.4.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 30 items
+
+backend/tests/test_auth.py::test_register_happy_path PASSED              [  3%]
+backend/tests/test_auth.py::test_register_duplicate_email_returns_409 PASSED [  6%]
+backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [ 10%]
+backend/tests/test_auth.py::test_login_happy_path PASSED                 [ 13%]
+backend/tests/test_auth.py::test_login_wrong_password_returns_401 PASSED [ 16%]
+backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [ 20%]
+backend/tests/test_auth.py::test_refresh_token_missing_cookie_returns_401 PASSED [ 23%]
+backend/tests/test_auth.py::test_logout_endpoint PASSED                  [ 26%]
+backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 30%]
+backend/tests/test_dashboard.py::test_summary_customer_forbidden PASSED  [ 33%]
+backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 36%]
+backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 40%]
+backend/tests/test_invoices.py::test_invoice_status_draft_to_confirmed PASSED [ 43%]
+backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 46%]
+backend/tests/test_payments.py::test_record_payment_happy_path PASSED    [ 50%]
+backend/tests/test_payments.py::test_payment_zero_amount_returns_422 PASSED [ 53%]
+backend/tests/test_payments.py::test_payment_negative_amount_returns_422 PASSED [ 56%]
+backend/tests/test_payments.py::test_payment_unknown_invoice_returns_404 PASSED [ 60%]
+backend/tests/test_payments.py::test_customer_cannot_record_payment_returns_403 PASSED [ 63%]
+backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 66%]
+backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 70%]
+backend/tests/test_products.py::test_customer_cannot_create_product_returns_403 PASSED [ 73%]
+backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 76%]
+backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 80%]
+backend/tests/test_products.py::test_customer_cannot_create_plan_returns_403 PASSED [ 83%]
+backend/tests/test_subscriptions.py::test_create_subscription_happy_path PASSED [ 86%]
+backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 90%]
+backend/tests/test_subscriptions.py::test_invalid_status_transition_returns_409 PASSED [ 93%]
+backend/tests/test_subscriptions.py::test_customer_cannot_create_subscription_returns_403 PASSED [ 96%]
+backend/tests/test_subscriptions.py::test_create_subscription_unknown_customer_returns_422 PASSED [100%]
+
+======================= 30 passed, 2 warnings in 26.37s =======================
+```
 
 # Start backend server (Port 8000)
+```powershell
 uvicorn backend.app.main:app --reload --port 8000
 ```
 

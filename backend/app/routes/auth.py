@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request, Response, HTTPException, status
 from sqlalchemy.orm import Session
 from jose import JWTError
 
+from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.security import create_access_token, create_refresh_token, decode_token
 from backend.app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserOut
@@ -35,6 +36,7 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         key=REFRESH_COOKIE,
         value=refresh_token,
         httponly=True,
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
         max_age=60 * 60 * 24 * 7,  # 7 days
     )
@@ -90,6 +92,7 @@ def logout(response: Response):
     response.delete_cookie(
         key=REFRESH_COOKIE,
         httponly=True,
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
     )
     return ok({"logged_out": True}, "Successfully logged out.")
