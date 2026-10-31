@@ -13,5 +13,7 @@ passlib[bcrypt]==1.7.4
 # Testing
 pytest==9.2.0
 pytest-asyncio==1.4.1
+# Scheduling
+apscheduler==3.11.3
 # DB migrations (installed, wired if needed)
 alembic==1.20.1

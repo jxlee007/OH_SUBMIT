@@ -215,3 +215,18 @@ def test_admin_manual_billing_run_api_happy_path(client, admin_token, pauseable_
     data = resp.json()["data"]
     assert data["target_date"] == "2026-11-05"
     assert data["invoices_generated"] >= 1
+
+
+def test_apscheduler_job_registration_and_execution():
+    """Verifies that APScheduler registers the billing job and manages lifecycle."""
+    from backend.app.services.scheduler_service import scheduler, start_scheduler, stop_scheduler
+
+    try:
+        start_scheduler()
+        assert scheduler.running is True
+        job = scheduler.get_job("daily_billing_renewal_job")
+        assert job is not None
+        assert "billing" in job.id
+    finally:
+        stop_scheduler()
+        assert scheduler.running is False

@@ -269,3 +269,68 @@ def test_product_scoped_discount_applied_only_to_matching_product(client: TestCl
     assert Decimal(str(data["subtotal"])) == Decimal("1500.00")
     assert Decimal(str(data["tax_amount"])) == Decimal("270.00")
     assert Decimal(str(data["total"])) == Decimal("1770.00")
+
+
+def test_concurrent_invoice_generation_enforces_discount_usage_limit(client: TestClient, admin_token: str, sample_subscription, db_engine):
+    """Verifies concurrency locking (SELECT ... FOR UPDATE): only 1 request consumes usage_limit=1."""
+    import concurrent.futures
+    from sqlalchemy.orm import sessionmaker
+    from backend.app.core.database import get_db
+    from backend.app.main import app
+
+    sub, p1, p2 = sample_subscription
+
+    # Create discount with usage_limit = 1
+    create_res = client.post(
+        "/api/discounts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "code": "CONCURRENT1",
+            "name": "One-Time Limited Flash Sale",
+            "rule_type": "percent",
+            "discount_value": "20.00",
+            "applies_to": "subscription",
+            "usage_limit": 1,
+            "valid_from": str(date.today()),
+            "valid_to": str(date.today() + timedelta(days=10)),
+        },
+    )
+    assert create_res.status_code == 201
+
+    # Provide per-request session factory for multi-threaded test execution
+    SessionMaker = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+    def thread_safe_get_db():
+        db = SessionMaker()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = thread_safe_get_db
+
+    try:
+        def try_generate(period_key: str):
+            with TestClient(app) as local_client:
+                return local_client.post(
+                    "/api/invoices/generate",
+                    headers={"Authorization": f"Bearer {admin_token}"},
+                    json={
+                        "subscription_id": sub.id,
+                        "billing_period_key": period_key,
+                        "discount_code": "CONCURRENT1",
+                    },
+                )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            f1 = executor.submit(try_generate, "2026-CONC-A")
+            f2 = executor.submit(try_generate, "2026-CONC-B")
+            r1 = f1.result()
+            r2 = f2.result()
+
+        status_codes = sorted([r1.status_code, r2.status_code])
+        # Exactly one succeeded with 201 and one was rejected with 409
+        assert status_codes == [201, 409], f"Unexpected status codes: {status_codes}"
+        error_res = r1 if r1.status_code == 409 else r2
+        assert "usage limit" in error_res.text.lower() and "exhausted" in error_res.text.lower()
+    finally:
+        app.dependency_overrides.clear()

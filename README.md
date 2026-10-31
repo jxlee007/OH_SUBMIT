@@ -123,7 +123,7 @@ erDiagram
 
 ## 3. Subscription Lifecycle State Machine
 
-Subscriptions follow a strict 5-stage sequential lifecycle. Illegal transitions (e.g., jumping from `draft` directly to `active`) are rejected at the service level with `409 Conflict` and guarded in PostgreSQL via check constraints:
+Subscriptions follow a strict sequential lifecycle with full pause/resume capabilities. Illegal transitions (e.g., jumping from `draft` directly to `active`) are rejected at the service level with `409 Conflict` and guarded in PostgreSQL via check constraints:
 
 ```mermaid
 stateDiagram-v2
@@ -134,6 +134,9 @@ stateDiagram-v2
     Quotation --> Closed : Quote Rejected
     Confirmed --> Active : Activate Subscription
     Confirmed --> Closed : Terminate
+    Active --> Paused : Pause (Plan Permits)
+    Paused --> Active : Resume Subscription
+    Paused --> Closed : Terminate / Close
     Active --> Closed : Subscription Expires / Ends
     Closed --> [*]
 ```
@@ -176,12 +179,12 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 ### Expected & Stretch Features (Incrementally Built & Tested)
 | Requirement | Tier | Status | Specification & Verification |
 |---|---|---|---|
-| Discount rules applied to next invoice | Expected | ✅ Built | Tested via `test_discounts.py`: Admin CRUD, concurrency `SELECT ... FOR UPDATE`, invoice line-item storage, expired 400, limit 409, percent > 100 422. |
-| Password reset flow | Expected | ✅ Built | Tested via `test_password_reset.py`: Anti-enumeration 200, SHA-256 single-use tokens, 30-min expiry 400, reused 400, password policy 422, `token_version` session revocation 401, offline capture sink. |
+| Discount rules applied to next invoice | Expected | ✅ Built | Tested via `test_discounts.py`: Admin CRUD, concurrency `SELECT ... FOR UPDATE` verified via multi-threaded race test (201 vs 409), invoice line-item storage, expired 400, limit 409, percent > 100 422. |
+| Password reset flow | Expected | ✅ Built | Tested via `test_password_reset.py`: Anti-enumeration 200, SHA-256 single-use tokens, 30-min expiry 400, reused 400, password policy 422, `token_version` session revocation verified (old tokens rejected with 401 Unauthorized), offline capture sink. |
 | Quotation templates | Expected | ✅ Built | Tested via `test_quotation_templates.py`: Bundle creation with line items, validity days check, 1-click instantiate to draft subscription, 409 guard on expired quote confirmation. |
 | Product variants | Expected | ✅ Built | Tested via `test_product_variants.py`: Attributes & values, unique SKU, price delta calculation (base + delta), and subscription line item referencing. |
 | Printed PDFs & real email delivery | Stretch | ⬜ Not built (Roadmap) | Offline-first HTML-to-PDF invoice printing and asynchronous background email delivery. |
-| Pause and renew automation | Stretch | ✅ Built | Tested via `test_scheduler_and_pause.py`: In-process daily billing engine, plan can_pause/can_renew capabilities, automatic skipping of paused subscriptions, and admin manual execution route. |
+| Pause and renew automation | Stretch | ✅ Built | Tested via `test_scheduler_and_pause.py`: In-process APScheduler daily billing engine, plan can_pause/can_renew capabilities, automatic skipping of paused subscriptions, admin manual execution route, and scheduler lifecycle tested. |
 
 ---
 
@@ -225,7 +228,7 @@ python backend/scripts/seed.py
 pytest backend/tests/ -v
 ```
 
-#### Live Test Suite Terminal Output (Verified 42/42 Passing)
+#### Live Test Suite Terminal Output (Verified 61/61 Passing)
 ```text
 ============================= test session starts =============================
 platform win32 -- Python 3.12.10, pytest-9.2.0, pluggy-1.7.0 -- A:\SAAS\OH_SUBMIT\.venv\Scripts\python.exe
@@ -234,31 +237,32 @@ rootdir: A:\SAAS\OH_SUBMIT
 configfile: pytest.ini
 plugins: anyio-3.7.1, asyncio-1.4.1
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
-collecting ... collected 59 items
+collecting ... collected 61 items
 
 backend/tests/test_auth.py::test_register_happy_path PASSED              [  1%]
 backend/tests/test_auth.py::test_register_duplicate_email_returns_409 PASSED [  3%]
-backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [  5%]
+backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [  4%]
 backend/tests/test_auth.py::test_login_happy_path PASSED                 [  6%]
 backend/tests/test_auth.py::test_login_wrong_password_returns_401 PASSED [  8%]
-backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [ 10%]
+backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [  9%]
 backend/tests/test_auth.py::test_refresh_token_missing_cookie_returns_401 PASSED [ 11%]
 backend/tests/test_auth.py::test_logout_endpoint PASSED                  [ 13%]
-backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 15%]
+backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 14%]
 backend/tests/test_dashboard.py::test_summary_customer_forbidden PASSED  [ 16%]
 backend/tests/test_discounts.py::test_create_discount_percent_over_100_returns_422 PASSED [ 18%]
-backend/tests/test_discounts.py::test_customer_cannot_create_discount_returns_403 PASSED [ 20%]
-backend/tests/test_discounts.py::test_expired_discount_rule_returns_400 PASSED [ 22%]
-backend/tests/test_discounts.py::test_exhausted_usage_limit_returns_409 PASSED [ 23%]
-backend/tests/test_discounts.py::test_valid_discount_rule_applied_to_invoice_happy_path PASSED [ 25%]
-backend/tests/test_discounts.py::test_product_scoped_discount_applied_only_to_matching_product PASSED [ 27%]
-backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 28%]
-backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 30%]
+backend/tests/test_discounts.py::test_customer_cannot_create_discount_returns_403 PASSED [ 19%]
+backend/tests/test_discounts.py::test_expired_discount_rule_returns_400 PASSED [ 21%]
+backend/tests/test_discounts.py::test_exhausted_usage_limit_returns_409 PASSED [ 22%]
+backend/tests/test_discounts.py::test_valid_discount_rule_applied_to_invoice_happy_path PASSED [ 24%]
+backend/tests/test_discounts.py::test_product_scoped_discount_applied_only_to_matching_product PASSED [ 26%]
+backend/tests/test_discounts.py::test_concurrent_invoice_generation_enforces_discount_usage_limit PASSED [ 27%]
+backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 29%]
+backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 31%]
 backend/tests/test_invoices.py::test_invoice_status_draft_to_confirmed PASSED [ 32%]
-backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 33%]
-backend/tests/test_password_reset.py::test_forgot_password_unknown_email_returns_200 PASSED [ 35%]
+backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 34%]
+backend/tests/test_password_reset.py::test_forgot_password_unknown_email_returns_200 PASSED [ 36%]
 backend/tests/test_password_reset.py::test_reset_password_weak_password_returns_422 PASSED [ 37%]
-backend/tests/test_password_reset.py::test_reset_password_expired_token_returns_400 PASSED [ 38%]
+backend/tests/test_password_reset.py::test_reset_password_expired_token_returns_400 PASSED [ 39%]
 backend/tests/test_password_reset.py::test_reset_password_reused_token_returns_400 PASSED [ 40%]
 backend/tests/test_password_reset.py::test_reset_password_happy_path_and_relogin PASSED [ 42%]
 backend/tests/test_password_reset.py::test_reset_password_invalidates_prior_active_tokens PASSED [ 44%]
@@ -271,32 +275,33 @@ backend/tests/test_product_variants.py::test_create_variant_duplicate_sku_return
 backend/tests/test_product_variants.py::test_create_variant_unknown_product_returns_404 PASSED [ 55%]
 backend/tests/test_product_variants.py::test_effective_price_calculation_base_plus_delta PASSED [ 57%]
 backend/tests/test_product_variants.py::test_subscription_with_variant_line_item PASSED [ 59%]
-backend/tests/test_product_variants.py::test_customer_cannot_create_variant_returns_403 PASSED [ 61%]
+backend/tests/test_product_variants.py::test_customer_cannot_create_variant_returns_403 PASSED [ 60%]
 backend/tests/test_product_variants.py::test_attribute_creation_and_duplicate_check PASSED [ 62%]
-backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 64%]
-backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 66%]
+backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 63%]
+backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 65%]
 backend/tests/test_products.py::test_customer_cannot_create_product_returns_403 PASSED [ 67%]
-backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 69%]
-backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 71%]
+backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 68%]
+backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 70%]
 backend/tests/test_products.py::test_customer_cannot_create_plan_returns_403 PASSED [ 72%]
-backend/tests/test_quotation_templates.py::test_create_quotation_template_happy_path PASSED [ 74%]
-backend/tests/test_quotation_templates.py::test_customer_cannot_create_quotation_template_returns_403 PASSED [ 76%]
+backend/tests/test_quotation_templates.py::test_create_quotation_template_happy_path PASSED [ 73%]
+backend/tests/test_quotation_templates.py::test_customer_cannot_create_quotation_template_returns_403 PASSED [ 75%]
 backend/tests/test_quotation_templates.py::test_instantiate_quotation_template_copies_lines_and_sets_draft PASSED [ 77%]
-backend/tests/test_quotation_templates.py::test_expired_quotation_cannot_be_confirmed_returns_409 PASSED [ 79%]
-backend/tests/test_quotation_templates.py::test_valid_quotation_confirms_happy_path PASSED [ 81%]
-backend/tests/test_scheduler_and_pause.py::test_pause_subscription_with_can_pause_false_returns_409 PASSED [ 83%]
-backend/tests/test_scheduler_and_pause.py::test_pause_and_resume_happy_path PASSED [ 84%]
-backend/tests/test_scheduler_and_pause.py::test_billing_run_skips_paused_subscriptions PASSED [ 86%]
-backend/tests/test_scheduler_and_pause.py::test_billing_run_closes_expired_non_renewable_subscription PASSED [ 88%]
-backend/tests/test_scheduler_and_pause.py::test_customer_cannot_trigger_billing_run_returns_403 PASSED [ 89%]
-backend/tests/test_scheduler_and_pause.py::test_admin_manual_billing_run_api_happy_path PASSED [ 91%]
+backend/tests/test_quotation_templates.py::test_expired_quotation_cannot_be_confirmed_returns_409 PASSED [ 78%]
+backend/tests/test_quotation_templates.py::test_valid_quotation_confirms_happy_path PASSED [ 80%]
+backend/tests/test_scheduler_and_pause.py::test_pause_subscription_with_can_pause_false_returns_409 PASSED [ 81%]
+backend/tests/test_scheduler_and_pause.py::test_pause_and_resume_happy_path PASSED [ 83%]
+backend/tests/test_scheduler_and_pause.py::test_billing_run_skips_paused_subscriptions PASSED [ 85%]
+backend/tests/test_scheduler_and_pause.py::test_billing_run_closes_expired_non_renewable_subscription PASSED [ 86%]
+backend/tests/test_scheduler_and_pause.py::test_customer_cannot_trigger_billing_run_returns_403 PASSED [ 88%]
+backend/tests/test_scheduler_and_pause.py::test_admin_manual_billing_run_api_happy_path PASSED [ 90%]
+backend/tests/test_scheduler_and_pause.py::test_apscheduler_job_registration_and_execution PASSED [ 91%]
 backend/tests/test_subscriptions.py::test_create_subscription_happy_path PASSED [ 93%]
-backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 94%]
+backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 95%]
 backend/tests/test_subscriptions.py::test_invalid_status_transition_returns_409 PASSED [ 96%]
 backend/tests/test_subscriptions.py::test_customer_cannot_create_subscription_returns_403 PASSED [ 98%]
 backend/tests/test_subscriptions.py::test_create_subscription_unknown_customer_returns_422 PASSED [100%]
 
-================== 59 passed, 2 warnings in 85.90s (0:01:25) ==================
+======================= 61 passed, 2 warnings in 47.92s =======================
 ```
 
 # Start backend server (Port 8000)

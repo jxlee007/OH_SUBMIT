@@ -1,8 +1,9 @@
-"""In-process scheduler service for automated daily billing and renewal enforcement."""
+"""In-process scheduler service for automated daily billing and renewal enforcement via APScheduler."""
 import logging
-import threading
 from datetime import date, timedelta
 from typing import Optional, Dict, Any
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 from backend.app.core.database import SessionLocal
 from backend.app.models.subscription import Subscription
@@ -11,6 +12,9 @@ from backend.app.schemas.invoice import GenerateInvoiceRequest
 from backend.app.services.invoice_service import generate_invoice
 
 logger = logging.getLogger(__name__)
+
+# Global BackgroundScheduler instance
+scheduler = BackgroundScheduler(daemon=True)
 
 
 def compute_billing_period_key(billing_period: str, target_date: date) -> str:
@@ -87,36 +91,33 @@ def run_billing_cycle(db: Session, target_date: Optional[date] = None) -> Dict[s
     }
 
 
-# Background thread management
-_scheduler_thread = None
-_stop_event = threading.Event()
-
-
-def _scheduler_worker():
-    logger.info("Background billing scheduler worker started.")
-    while not _stop_event.is_set():
-        try:
-            db = SessionLocal()
-            try:
-                run_billing_cycle(db)
-            finally:
-                db.close()
-        except Exception as exc:
-            logger.error(f"Error in billing scheduler run: {exc}")
-        _stop_event.wait(3600)
-    logger.info("Background billing scheduler worker stopped.")
+def _scheduled_billing_job():
+    """Scheduled task executed by APScheduler."""
+    logger.info("APScheduler executing daily billing and renewal cycle...")
+    db = SessionLocal()
+    try:
+        run_billing_cycle(db)
+    except Exception as exc:
+        logger.error(f"Error in APScheduler daily billing execution: {exc}")
+    finally:
+        db.close()
 
 
 def start_scheduler():
-    """Start in-process daemon worker."""
-    global _scheduler_thread, _stop_event
-    if _scheduler_thread is None or not _scheduler_thread.is_alive():
-        _stop_event.clear()
-        _scheduler_thread = threading.Thread(target=_scheduler_worker, daemon=True)
-        _scheduler_thread.start()
+    """Start APScheduler in-process background worker."""
+    if not scheduler.running:
+        scheduler.add_job(
+            _scheduled_billing_job,
+            IntervalTrigger(hours=1),
+            id="daily_billing_renewal_job",
+            replace_existing=True,
+        )
+        scheduler.start()
+        logger.info("APScheduler started successfully.")
 
 
 def stop_scheduler():
-    """Stop in-process daemon worker."""
-    global _stop_event
-    _stop_event.set()
+    """Gracefully shutdown APScheduler."""
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("APScheduler stopped.")
