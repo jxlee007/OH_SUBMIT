@@ -12,6 +12,7 @@ from backend.app.schemas.invoice import GenerateInvoiceRequest, InvoiceStatusUpd
 from backend.app.services.discount_service import get_and_lock_discount_rule
 
 _discount_concurrency_lock = threading.RLock()
+_concurrency_test_hook = None  # Hook for concurrency and race condition proof testing
 
 
 def _round2(value: Decimal) -> Decimal:
@@ -45,6 +46,8 @@ def generate_invoice(payload: GenerateInvoiceRequest, db: Session) -> Invoice:
         discount_rule = None
         if payload.discount_code:
             discount_rule = get_and_lock_discount_rule(payload.discount_code, db)
+            if _concurrency_test_hook:
+                _concurrency_test_hook()
 
             # Validate minimum purchase constraints
             total_sub_qty = sum(line.quantity for line in sub.lines)
@@ -150,7 +153,7 @@ def list_invoices(
     if overdue_only:
         today = date.today()
         q = q.filter(Invoice.status != "paid", Invoice.due_date < today)
-    return q.all()
+    return q.order_by(Invoice.id.desc()).all()
 
 
 def get_invoice(invoice_id: int, db: Session) -> Invoice:

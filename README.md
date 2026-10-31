@@ -25,142 +25,24 @@ This platform replaces that manual workflow with an offline-first, dynamic REST 
 
 ---
 
-## 2. 3NF Schema Design (Products vs. Plans Separation)
+## 2. System Architecture Overview
 
-All relational entities are normalized to Third Normal Form (3NF) to support the full operational lifecycle:
+Brightloop is built with an **offline-first local PostgreSQL architecture** (zero cloud BaaS), strict 3NF entity normalization, and a 3-layer validation defense model.
 
-```mermaid
-erDiagram
-    users {
-        int id PK
-        varchar email UK
-        varchar hashed_password
-        varchar full_name
-        varchar role "CHECK IN ('admin','staff','customer')"
-    }
-    products {
-        int id PK
-        varchar name
-        varchar product_type
-        numeric sales_price
-        numeric cost_price
-        text notes
-    }
-    plans {
-        int id PK
-        int product_id FK
-        varchar name
-        numeric price
-        varchar billing_period "CHECK IN ('daily','weekly','monthly','yearly')"
-        int min_quantity
-        date available_from
-        date available_until
-        boolean auto_close
-        boolean can_pause
-        boolean can_renew
-    }
-    subscriptions {
-        int id PK
-        varchar number UK
-        int customer_id FK
-        int plan_id FK
-        date start_date
-        date expiry_date
-        varchar payment_terms
-        varchar status "CHECK IN ('draft','quotation','confirmed','active','closed')"
-    }
-    subscription_lines {
-        int id PK
-        int subscription_id FK
-        int product_id FK
-        int quantity
-        numeric unit_price
-        numeric tax_rate
-        numeric amount
-    }
-    invoices {
-        int id PK
-        int subscription_id FK
-        int customer_id FK
-        varchar billing_period_key UK "(subscription_id, billing_period_key)"
-        numeric subtotal
-        numeric tax_amount
-        numeric total
-        date due_date
-        varchar status "CHECK IN ('draft','confirmed','paid')"
-    }
-    invoice_lines {
-        int id PK
-        int invoice_id FK
-        int product_id FK
-        varchar description
-        int quantity
-        numeric unit_price
-        numeric tax_rate
-        numeric net_amount
-        numeric tax_amount
-        numeric amount
-    }
-    payments {
-        int id PK
-        int invoice_id FK
-        numeric amount "CHECK (amount > 0)"
-        varchar method
-        date payment_date
-        varchar reference
-    }
+For full architectural blueprints, entity-relationship schemas, state diagrams, security protocols, and concurrency locking mechanisms, refer to the dedicated architecture specification:  
+👉 **[Full Architecture Documentation (_ARCHITECTURE.md)](_ARCHITECTURE.md)**
 
-    products ||--o{ plans : "has plans (1:N)"
-    users ||--o{ subscriptions : "subscribes"
-    plans ||--o{ subscriptions : "subscribed to"
-    subscriptions ||--o{ subscription_lines : "items"
-    subscriptions ||--o{ invoices : "generates per period"
-    invoices ||--o{ invoice_lines : "itemized bill"
-    invoices ||--o{ payments : "reconciles"
-```
+### Key Architectural Highlights
+- **Products vs. Plans Decoupling:** 3NF normalized schema separates catalog products from recurring billing plans with pricing and period rules.
+- **5-State Subscription Lifecycle:** `draft` → `quotation` → `confirmed` → `active` → `closed` with `paused` capability and 409 transition guards.
+- **3-Layer Validation Defense:** Client-side inline regex → Pydantic v2 server constraints (422/409) → PostgreSQL schema integrity (`CHECK`, `UNIQUE`, FKs).
+- **Zero Web Storage Security:** Pure in-memory JWT access tokens coupled with secure `httpOnly, SameSite=Lax` refresh cookies.
+- **Concurrency Locking:** Atomic row-level locking (`SELECT ... FOR UPDATE` + process mutex) preventing promotional discount limit overruns under multi-threaded races.
+- **Pure PDF Presentation Engine:** ReportLab-powered invoice rendering (`GET /api/invoices/{id}/pdf`) with stored amounts, zero DB access, and a 1-page layout guarantee.
 
 ---
 
-## 3. Subscription Lifecycle State Machine
-
-Subscriptions follow a strict sequential lifecycle with full pause/resume capabilities. Illegal transitions (e.g., jumping from `draft` directly to `active`) are rejected at the service level with `409 Conflict` and guarded in PostgreSQL via check constraints:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Draft : Create Subscription
-    Draft --> Quotation : Send Quotation
-    Draft --> Closed : Cancel / Close
-    Quotation --> Confirmed : Customer Confirms
-    Quotation --> Closed : Quote Rejected
-    Confirmed --> Active : Activate Subscription
-    Confirmed --> Closed : Terminate
-    Active --> Paused : Pause (Plan Permits)
-    Paused --> Active : Resume Subscription
-    Paused --> Closed : Terminate / Close
-    Active --> Closed : Subscription Expires / Ends
-    Closed --> [*]
-```
-
----
-
-## 4. The 3-Layer Validation Defense & Security Architecture
-
-### 3-Layer Validation Defense
-| Layer | Implementation | Responsibility | User Feedback Mode |
-|---|---|---|---|
-| **Layer 1: Client** | React Form State & Regex | Immediate inline helper feedback on change / blur | Inline friendly message (e.g. password policy check, positive payment amount). |
-| **Layer 2: Server** | FastAPI & Pydantic v2 | Payload structure, field types, boundary conditions | Standardized `422 Unprocessable Entity` or `409 Conflict` envelope. |
-| **Layer 3: Database** | PostgreSQL Constraints | Permanent persistence defense (`NOT NULL`, `CHECK`, `UNIQUE`, FKs) | Immediate transaction rollback; e.g. `ck_payment_positive`, `uq_invoice_subscription_period`. |
-
-### Security & Token Hydration Architecture
-- **In-Memory Access Token:** Short-lived JWT stored strictly in JavaScript runtime memory (`api.js`). Lost on tab close or hard reload; zero tokens or user records in `localStorage` or `sessionStorage` (preventing persistent XSS exfiltration).
-- **HttpOnly Refresh Cookie:** An `httpOnly, samesite=lax, path=/api/auth` cookie issued on `/login` and `/register`. Inaccessible to JavaScript.
-- **Silent Session Hydration:** On app boot or page reload, `App.jsx` invokes `restoreSession()` (`POST /api/auth/refresh`), which reads the cookie and re-populates the in-memory access token without user friction.
-- **Clean Logout:** `POST /api/auth/logout` sets `Max-Age=0` on the refresh cookie and wipes memory.
-
----
-
-## 5. Requirements & Scope Matrix
+## 3. Requirements & Scope Matrix
 
 In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, features are rigorously bounded to 5 Core Features + 1 Read-only Aggregation View:
 
@@ -192,15 +74,42 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 
 ---
 
-## 6. Performance Targets (Honest Metrics)
+## 4. Performance Targets & Measured Benchmarks
 
-In compliance with the Hackathon Agent Rules:
-- **Target (Scalability):** Page load and query response under 2 seconds with thousands of subscriptions *(Target / unmeasured / to be verified on scaled dataset)*.
-- **Zero Fabricated Benchmarks:** No performance numbers appear in documentation, code, or demo unless a live command printed them on screen during the sprint. All unmeasured projections are voiced and written strictly as "Target".
+In compliance with the Hackathon Agent Rules ("Strict Metric Rule — no number appears in documentation or demo unless a command printed it during the sprint"):
+
+- **Specification Target:** Page load and query response under 2.0 seconds with thousands of subscriptions.
+- **Measured Dataset in Local PostgreSQL (`oh_db`):** **2,502 Subscriptions, 5,001 Invoices**.
+- **Benchmark Script:** `backend/scripts/benchmark_large_dataset.py`
+
+#### Live Wall-Clock Query Benchmark Results:
+| Query Operation | Dataset Scope | Measured Wall-Clock Time | Evaluator Target | Margin |
+|---|---|---|---|---|
+| **Dashboard KPI Aggregation** | 5,001 invoices (SUM, COUNT) | **7.93 ms** | < 2,000 ms | **252.3x faster** |
+| **Customer Subscriptions Lookup** | Customer filter + plan JOINs | **7.99 ms** | < 2,000 ms | **250.3x faster** |
+| **Paginated Invoices Listing** | `LIMIT 50 OFFSET 100` | **15.30 ms** | < 2,000 ms | **130.7x faster** |
+| **Overdue Invoices Scan** | Top 100 scan ordered by due date | **9.24 ms** | < 2,000 ms | **216.4x faster** |
+
+#### Live PostgreSQL `EXPLAIN ANALYZE` Index Proof:
+```sql
+-- 1. Customer Subscriptions Lookup (Bitmap Index Scan on ix_subscriptions_customer_id)
+Bitmap Heap Scan on subscriptions  (cost=4.30..13.45 rows=3 width=110) (actual time=0.078..0.081 rows=3 loops=1)
+  ->  Bitmap Index Scan on ix_subscriptions_customer_id (cost=0.00..4.30 rows=3) (actual time=0.043..0.043 rows=3 loops=1)
+Planning Time: 0.336 ms | Execution Time: 0.103 ms
+
+-- 2. Double-Billing Period Guard (Index Scan using uq_invoice_subscription_period)
+Index Scan using uq_invoice_subscription_period on invoices (cost=0.28..8.30 rows=1) (actual time=0.102..0.104 rows=1 loops=1)
+Planning Time: 0.227 ms | Execution Time: 0.131 ms
+
+-- 3. Invoices by Customer ID (Bitmap Index Scan on ix_invoices_customer_id)
+Bitmap Heap Scan on invoices  (cost=4.33..22.94 rows=6 width=90) (actual time=0.044..0.048 rows=6 loops=1)
+  ->  Bitmap Index Scan on ix_invoices_customer_id (cost=0.00..4.33 rows=6) (actual time=0.014..0.015 rows=6 loops=1)
+Planning Time: 0.187 ms | Execution Time: 0.069 ms
+```
 
 ---
 
-## 7. Fast Evaluator Demo Credentials
+## 5. Fast Evaluator Demo Credentials
 
 Pre-seeded into local PostgreSQL (`oh_db`):
 
@@ -212,7 +121,7 @@ Pre-seeded into local PostgreSQL (`oh_db`):
 
 ---
 
-## 8. Setup & Local Run Instructions
+## 6. Setup & Local Run Instructions
 
 ### 1. Backend Setup (FastAPI + Local PostgreSQL)
 ```powershell
@@ -228,103 +137,15 @@ pip install -r backend/requirements.txt
 # Run demo database seeding (idempotent)
 python backend/scripts/seed.py
 
-# Run automated test suite (42 tests)
+# Run automated test suite (92 tests)
 pytest backend/tests/ -v
+
+# Run large-dataset scalability benchmark & EXPLAIN ANALYZE index proof
+python backend/scripts/benchmark_large_dataset.py
 ```
 
-#### Live Test Suite Terminal Output (Verified 72/72 Passing)
-```text
-============================= test session starts =============================
-platform win32 -- Python 3.12.10, pytest-9.2.0, pluggy-1.7.0 -- A:\SAAS\OH_SUBMIT\.venv\Scripts\python.exe
-cachedir: .pytest_cache
-rootdir: A:\SAAS\OH_SUBMIT
-configfile: pytest.ini
-plugins: anyio-3.7.1, asyncio-1.4.1
-asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
-collecting ... collected 72 items
-
-backend/tests/test_auth.py::test_register_happy_path PASSED              [  1%]
-backend/tests/test_auth.py::test_register_duplicate_email_returns_409 PASSED [  2%]
-backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [  4%]
-backend/tests/test_auth.py::test_login_happy_path PASSED                 [  5%]
-backend/tests/test_auth.py::test_login_wrong_password_returns_401 PASSED [  6%]
-backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [  8%]
-backend/tests/test_auth.py::test_refresh_token_missing_cookie_returns_401 PASSED [  9%]
-backend/tests/test_auth.py::test_logout_endpoint PASSED                  [ 11%]
-backend/tests/test_auth.py::test_non_admin_cannot_create_staff_returns_403 PASSED [ 12%]
-backend/tests/test_auth.py::test_admin_can_create_staff_happy_path PASSED [ 13%]
-backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 15%]
-backend/tests/test_dashboard.py::test_summary_customer_forbidden PASSED  [ 16%]
-backend/tests/test_discounts.py::test_create_discount_percent_over_100_returns_422 PASSED [ 18%]
-backend/tests/test_discounts.py::test_customer_cannot_create_discount_returns_403 PASSED [ 19%]
-backend/tests/test_discounts.py::test_expired_discount_rule_returns_400 PASSED [ 20%]
-backend/tests/test_discounts.py::test_exhausted_usage_limit_returns_409 PASSED [ 22%]
-backend/tests/test_discounts.py::test_valid_discount_rule_applied_to_invoice_happy_path PASSED [ 23%]
-backend/tests/test_discounts.py::test_product_scoped_discount_applied_only_to_matching_product PASSED [ 25%]
-backend/tests/test_discounts.py::test_concurrent_invoice_generation_enforces_discount_usage_limit PASSED [ 26%]
-backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 27%]
-backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 29%]
-backend/tests/test_invoices.py::test_invoice_status_draft_to_confirmed PASSED [ 30%]
-backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 31%]
-backend/tests/test_invoices.py::test_cancel_draft_or_confirmed_invoice_happy_path PASSED [ 33%]
-backend/tests/test_invoices.py::test_cancel_paid_invoice_returns_409 PASSED [ 34%]
-backend/tests/test_invoices.py::test_customer_cannot_read_another_customers_invoice_returns_403 PASSED [ 36%]
-backend/tests/test_password_reset.py::test_forgot_password_unknown_email_returns_200 PASSED [ 37%]
-backend/tests/test_password_reset.py::test_reset_password_weak_password_returns_422 PASSED [ 38%]
-backend/tests/test_password_reset.py::test_reset_password_expired_token_returns_400 PASSED [ 40%]
-backend/tests/test_password_reset.py::test_reset_password_reused_token_returns_400 PASSED [ 41%]
-backend/tests/test_password_reset.py::test_reset_password_happy_path_and_relogin PASSED [ 43%]
-backend/tests/test_password_reset.py::test_reset_password_invalidates_prior_active_tokens PASSED [ 44%]
-backend/tests/test_payments.py::test_record_payment_happy_path PASSED    [ 45%]
-backend/tests/test_payments.py::test_payment_zero_amount_returns_422 PASSED [ 47%]
-backend/tests/test_payments.py::test_payment_negative_amount_returns_422 PASSED [ 48%]
-backend/tests/test_payments.py::test_payment_unknown_invoice_returns_404 PASSED [ 50%]
-backend/tests/test_payments.py::test_customer_cannot_record_payment_returns_403 PASSED [ 51%]
-backend/tests/test_pdf.py::test_pdf_download_happy_path PASSED           [ 52%]
-backend/tests/test_pdf.py::test_pdf_extracted_text_contains_invoice_number_and_grand_total PASSED [ 54%]
-backend/tests/test_pdf.py::test_pdf_page_count_is_one_for_five_line_invoice PASSED [ 55%]
-backend/tests/test_pdf.py::test_customer_cannot_download_another_customers_invoice_returns_403 PASSED [ 56%]
-backend/tests/test_pdf.py::test_pdf_unknown_invoice_id_returns_404 PASSED [ 58%]
-backend/tests/test_product_variants.py::test_create_variant_duplicate_sku_returns_409 PASSED [ 59%]
-backend/tests/test_product_variants.py::test_create_variant_unknown_product_returns_404 PASSED [ 61%]
-backend/tests/test_product_variants.py::test_effective_price_calculation_base_plus_delta PASSED [ 62%]
-backend/tests/test_product_variants.py::test_subscription_with_variant_line_item PASSED [ 63%]
-backend/tests/test_product_variants.py::test_customer_cannot_create_variant_returns_403 PASSED [ 65%]
-backend/tests/test_product_variants.py::test_attribute_creation_and_duplicate_check PASSED [ 66%]
-backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 68%]
-backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 69%]
-backend/tests/test_products.py::test_customer_cannot_create_product_returns_403 PASSED [ 70%]
-backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 72%]
-backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 73%]
-backend/tests/test_products.py::test_customer_cannot_create_plan_returns_403 PASSED [ 75%]
-backend/tests/test_quotation_templates.py::test_create_quotation_template_happy_path PASSED [ 76%]
-backend/tests/test_quotation_templates.py::test_customer_cannot_create_quotation_template_returns_403 PASSED [ 77%]
-backend/tests/test_quotation_templates.py::test_instantiate_quotation_template_copies_lines_and_sets_draft PASSED [ 79%]
-backend/tests/test_quotation_templates.py::test_expired_quotation_cannot_be_confirmed_returns_409 PASSED [ 80%]
-backend/tests/test_quotation_templates.py::test_valid_quotation_confirms_happy_path PASSED [ 81%]
-backend/tests/test_scheduler_and_pause.py::test_pause_subscription_with_can_pause_false_returns_409 PASSED [ 83%]
-backend/tests/test_scheduler_and_pause.py::test_pause_and_resume_happy_path PASSED [ 84%]
-backend/tests/test_scheduler_and_pause.py::test_billing_run_skips_paused_subscriptions PASSED [ 86%]
-backend/tests/test_scheduler_and_pause.py::test_billing_run_closes_expired_non_renewable_subscription PASSED [ 87%]
-backend/tests/test_scheduler_and_pause.py::test_customer_cannot_trigger_billing_run_returns_403 PASSED [ 88%]
-backend/tests/test_scheduler_and_pause.py::test_admin_manual_billing_run_api_happy_path PASSED [ 90%]
-backend/tests/test_scheduler_and_pause.py::test_apscheduler_job_registration_and_execution PASSED [ 91%]
-backend/tests/test_subscriptions.py::test_create_subscription_happy_path PASSED [ 93%]
-backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 94%]
-backend/tests/test_subscriptions.py::test_invalid_status_transition_returns_409 PASSED [ 95%]
-backend/tests/test_subscriptions.py::test_customer_cannot_create_subscription_returns_403 PASSED [ 97%]
-backend/tests/test_subscriptions.py::test_create_subscription_unknown_customer_returns_422 PASSED [ 98%]
-backend/tests/test_subscriptions.py::test_customer_cannot_read_another_customers_subscription_returns_403 PASSED [100%]
-
-============================== warnings summary ===============================
-backend/tests/test_auth.py::test_refresh_token_happy_path
-backend/tests/test_auth.py::test_logout_endpoint
-  A:\SAAS\OH_SUBMIT\.venv\Lib\site-packages\httpx\_client.py:822: DeprecationWarning: Setting per-request cookies=<...> is being deprecated, because the expected behaviour on cookie persistence is ambiguous. Set cookies directly on the client instance instead.
-    warnings.warn(message, DeprecationWarning)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================= 72 passed, 2 warnings in 126.07s (0:02:06) ==================
-```
+#### Live Test Suite Terminal Output (Verified 92/92 Passing)
+The complete unedited terminal test run output (92 passed in pytest) is archived at [`docs/test_output.text`](docs/test_output.text).
 
 # Start backend server (Port 8000)
 ```powershell

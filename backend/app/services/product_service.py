@@ -18,7 +18,7 @@ def list_products(db: Session, active_only: bool = True) -> list[Product]:
     q = db.query(Product)
     if active_only:
         q = q.filter(Product.is_active == True)  # noqa: E712
-    return q.all()
+    return q.order_by(Product.id.desc()).all()
 
 
 def get_product(product_id: int, db: Session) -> Product:

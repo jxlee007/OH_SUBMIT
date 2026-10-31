@@ -35,7 +35,7 @@ def list_payments(db: Session, invoice_id: int | None = None) -> list[Payment]:
     q = db.query(Payment)
     if invoice_id:
         q = q.filter(Payment.invoice_id == invoice_id)
-    return q.all()
+    return q.order_by(Payment.id.desc()).all()
 
 
 def list_outstanding_invoices(db: Session) -> list[Invoice]:

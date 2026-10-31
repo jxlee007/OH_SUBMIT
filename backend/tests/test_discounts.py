@@ -334,3 +334,81 @@ def test_concurrent_invoice_generation_enforces_discount_usage_limit(client: Tes
         assert "usage limit" in error_res.text.lower() and "exhausted" in error_res.text.lower()
     finally:
         app.dependency_overrides.clear()
+
+
+def test_concurrency_negative_proof_without_lock_demonstrates_race(client: TestClient, admin_token: str, sample_subscription, db_engine):
+    """Negative proof: Bypassing the concurrency lock permits concurrent race condition.
+
+    When the mutex synchronization lock is bypassed with a nullcontext (in SQLite where
+    row-level locking is a no-op), two concurrent threads simultaneously evaluate
+    times_used = 0, both succeed with [201, 201], and overrun the usage limit.
+    This proves that the concurrency lock in invoice_service is the critical defense mechanism.
+    """
+    import concurrent.futures
+    import contextlib
+    from unittest.mock import patch
+    from sqlalchemy.orm import sessionmaker
+    from backend.app.core.database import get_db
+    from backend.app.main import app
+
+    sub, p1, p2 = sample_subscription
+
+    # Create discount with usage_limit = 1
+    create_res = client.post(
+        "/api/discounts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "code": "RACEFAIL1",
+            "name": "Race Demonstration Code",
+            "rule_type": "percent",
+            "discount_value": "15.00",
+            "applies_to": "subscription",
+            "usage_limit": 1,
+            "valid_from": str(date.today()),
+            "valid_to": str(date.today() + timedelta(days=10)),
+        },
+    )
+    assert create_res.status_code == 201
+
+    SessionMaker = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+    def thread_safe_get_db():
+        db = SessionMaker()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = thread_safe_get_db
+
+    import threading
+    barrier = threading.Barrier(2)
+    try:
+        def try_generate(period_key: str):
+            with TestClient(app, raise_server_exceptions=False) as local_client:
+                return local_client.post(
+                    "/api/invoices/generate",
+                    headers={"Authorization": f"Bearer {admin_token}"},
+                    json={
+                        "subscription_id": sub.id,
+                        "billing_period_key": period_key,
+                        "discount_code": "RACEFAIL1",
+                    },
+                )
+
+        # Bypass the concurrency lock using patch to simulate an unprotected environment
+        # and synchronize via _concurrency_test_hook so both threads read before either commits
+        with patch("backend.app.services.invoice_service._discount_concurrency_lock", contextlib.nullcontext()), \
+             patch("backend.app.services.invoice_service._concurrency_test_hook", lambda: barrier.wait()):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                f1 = executor.submit(try_generate, "2026-RACE-A")
+                f2 = executor.submit(try_generate, "2026-RACE-B")
+                r1 = f1.result()
+                r2 = f2.result()
+
+        status_codes = sorted([r1.status_code, r2.status_code])
+        # Without synchronization, concurrent executions break the [201, 409] invariant
+        assert status_codes != [201, 409], (
+            f"Expected unprotected execution to break the [201, 409] invariant, got {status_codes}"
+        )
+    finally:
+        app.dependency_overrides.clear()

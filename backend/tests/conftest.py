@@ -1,7 +1,7 @@
 """Pytest configuration and shared fixtures."""
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -20,9 +20,35 @@ def db_engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     # Import all models so metadata is registered
     from backend.app.models import user, product, plan, subscription, invoice, payment, discount, password_reset, quotation_template, variant  # noqa: F401
     Base.metadata.create_all(bind=engine)
+
+    # Database kernel triggers for paid invoice immutability
+    with engine.connect() as conn:
+        conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_protect_paid_invoices_update
+            BEFORE UPDATE ON invoices
+            BEGIN
+                SELECT CASE WHEN OLD.status = 'paid' THEN RAISE (ABORT, 'Database Violation: Invoices in paid status are immutable and cannot be updated.') END;
+            END;
+        """))
+        conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS trg_protect_paid_invoices_delete
+            BEFORE DELETE ON invoices
+            BEGIN
+                SELECT CASE WHEN OLD.status = 'paid' THEN RAISE (ABORT, 'Database Violation: Invoices in paid status are immutable and cannot be deleted.') END;
+            END;
+        """))
+        conn.commit()
+
     yield engine
     Base.metadata.drop_all(bind=engine)
     engine.dispose()

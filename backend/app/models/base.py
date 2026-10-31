@@ -1,6 +1,6 @@
 """Base models and shared model mixins."""
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, DateTime
+from sqlalchemy import Column, Integer, DateTime, text
 from backend.app.core.database import Base
 
 
@@ -10,12 +10,14 @@ class TimestampMixin:
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+        server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+        server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
 

@@ -64,7 +64,29 @@ def create_tables() -> None:
             "ALTER TABLE plans ADD COLUMN IF NOT EXISTS can_renew BOOLEAN NOT NULL DEFAULT TRUE;",
             "ALTER TABLE invoices DROP CONSTRAINT IF EXISTS ck_invoice_status;",
             "ALTER TABLE invoices ADD CONSTRAINT ck_invoice_status CHECK (status IN ('draft', 'confirmed', 'paid', 'cancelled'));",
+            "ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS ck_subscription_status;",
+            "ALTER TABLE subscriptions ADD CONSTRAINT ck_subscription_status CHECK (status IN ('draft', 'quotation', 'confirmed', 'active', 'paused', 'closed'));",
         ]
+        if engine.dialect.name == "postgresql":
+            migrations.extend([
+                """
+                CREATE OR REPLACE FUNCTION protect_paid_invoices()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    IF OLD.status = 'paid' THEN
+                        RAISE EXCEPTION 'Database Violation: Invoices in paid status are immutable and cannot be updated or deleted.';
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql;
+                """,
+                "DROP TRIGGER IF EXISTS trg_protect_paid_invoices ON invoices;",
+                """
+                CREATE TRIGGER trg_protect_paid_invoices
+                BEFORE UPDATE OR DELETE ON invoices
+                FOR EACH ROW EXECUTE FUNCTION protect_paid_invoices();
+                """,
+            ])
         for sql in migrations:
             try:
                 conn.execute(text(sql))

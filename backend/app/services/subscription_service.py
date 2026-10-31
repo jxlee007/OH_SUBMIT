@@ -87,7 +87,7 @@ def list_subscriptions(db: Session, customer_id: int | None = None, status_filte
         q = q.filter(Subscription.customer_id == customer_id)
     if status_filter:
         q = q.filter(Subscription.status == status_filter)
-    return q.all()
+    return q.order_by(Subscription.id.desc()).all()
 
 
 def get_subscription(sub_id: int, db: Session) -> Subscription:

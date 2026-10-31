@@ -24,7 +24,7 @@ def list_plans(db: Session, active_only: bool = True) -> list[Plan]:
     q = db.query(Plan)
     if active_only:
         q = q.filter(Plan.is_active == True)  # noqa: E712
-    return q.all()
+    return q.order_by(Plan.id.desc()).all()
 
 
 def get_plan(plan_id: int, db: Session) -> Plan:
