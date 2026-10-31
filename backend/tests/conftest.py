@@ -62,6 +62,23 @@ def admin_token(db_session):
 
 
 @pytest.fixture
+def staff_token(db_session):
+    """Create a staff user and return their bearer token."""
+    from backend.app.models.user import User as UserModel
+    from backend.app.core.security import hash_password
+    user = UserModel(
+        email="staff@test.com",
+        hashed_password=hash_password("Staff@1234"),
+        full_name="Staff User",
+        role="staff",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return create_access_token({"sub": str(user.id), "role": "staff"})
+
+
+@pytest.fixture
 def customer_token(db_session):
     """Create a customer user and return their bearer token."""
     from backend.app.models.user import User as UserModel

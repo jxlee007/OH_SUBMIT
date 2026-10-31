@@ -58,7 +58,7 @@ class SubscriptionStatusUpdate(BaseModel):
     @field_validator("status")
     @classmethod
     def status_valid(cls, v: str) -> str:
-        allowed = ("draft", "quotation", "confirmed", "active", "closed")
+        allowed = ("draft", "quotation", "confirmed", "active", "paused", "closed")
         if v not in allowed:
             raise ValueError(f"must be one of: {', '.join(allowed)}")
         return v

@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 
 from backend.app.core.config import settings
 from backend.app.core.database import create_tables
+from backend.app.services.scheduler_service import start_scheduler, stop_scheduler
 from backend.app.routes import (
     health, auth, products, plans, subscriptions, invoices, payments,
     dashboard, discounts, quotation_templates, variants,
@@ -22,11 +23,17 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Create all tables on startup (idempotent)."""
+    """Create all tables on startup (idempotent) and optionally start scheduler."""
     logger.info("Creating database tables...")
     create_tables()
     logger.info("Tables ready.")
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Starting automated billing scheduler...")
+        start_scheduler()
     yield
+    if settings.ENABLE_SCHEDULER:
+        logger.info("Stopping automated billing scheduler...")
+        stop_scheduler()
 
 
 app = FastAPI(

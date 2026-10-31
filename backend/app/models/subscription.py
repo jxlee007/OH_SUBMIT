@@ -5,14 +5,15 @@ from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
 from backend.app.models.base import IDMixin, TimestampMixin
 
-SUBSCRIPTION_STATUS = ("draft", "quotation", "confirmed", "active", "closed")
+SUBSCRIPTION_STATUS = ("draft", "quotation", "confirmed", "active", "paused", "closed")
 
-# Strict state machine transition rules (Draft -> Quotation -> Confirmed -> Active -> Closed)
+# Strict state machine transition rules (Draft -> Quotation -> Confirmed -> Active -> Paused -> Closed)
 STATUS_TRANSITIONS: dict[str, list[str]] = {
     "draft": ["quotation", "closed"],
     "quotation": ["confirmed", "closed"],
     "confirmed": ["active", "closed"],
-    "active": ["closed"],
+    "active": ["paused", "closed"],
+    "paused": ["active", "closed"],
     "closed": [],
 }
 
@@ -23,7 +24,7 @@ class Subscription(IDMixin, TimestampMixin, Base):
     __tablename__ = "subscriptions"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft', 'quotation', 'confirmed', 'active', 'closed')",
+            "status IN ('draft', 'quotation', 'confirmed', 'active', 'paused', 'closed')",
             name="ck_subscription_status",
         ),
     )

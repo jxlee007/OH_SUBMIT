@@ -30,6 +30,7 @@ class Settings:
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
     ALGORITHM: str = "HS256"
     COOKIE_SECURE: bool = os.getenv("COOKIE_SECURE", "False").lower() in ("true", "1", "yes")
+    ENABLE_SCHEDULER: bool = os.getenv("ENABLE_SCHEDULER", "False").lower() in ("true", "1", "yes")
 
     # CORS Origins allowed
     CORS_ORIGINS: list[str] = [

@@ -116,7 +116,25 @@ def update_subscription_status(sub_id: int, payload: SubscriptionStatusUpdate, d
                 detail=f"Quotation expired on {sub.quote_valid_until} and cannot be confirmed. Please regenerate quotation.",
             )
 
+    # Plan pause capability check
+    if payload.status == "paused":
+        if not getattr(sub.plan, "can_pause", False):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This subscription plan does not allow pausing.",
+            )
+
     sub.status = payload.status
     db.commit()
     db.refresh(sub)
     return sub
+
+
+def pause_subscription(sub_id: int, db: Session) -> Subscription:
+    """Convenience helper to pause an active subscription."""
+    return update_subscription_status(sub_id, SubscriptionStatusUpdate(status="paused"), db)
+
+
+def resume_subscription(sub_id: int, db: Session) -> Subscription:
+    """Convenience helper to resume a paused subscription."""
+    return update_subscription_status(sub_id, SubscriptionStatusUpdate(status="active"), db)
