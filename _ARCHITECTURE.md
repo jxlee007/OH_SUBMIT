@@ -74,7 +74,7 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 | Payment recording with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` |
 | Read-only operational metrics view | View | ✅ Built | Tested via `test_dashboard.py` (No state mutations) |
 | Discount rules applied to next invoice | Expected | ✅ Built | Tested via `test_discounts.py` (Admin CRUD, concurrency locking with FOR UPDATE, line-item storage, expired 400, limit 409) |
-| Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Self-service password reset request via local SMTP capture (`aiosmtpd`) with secure token expiry. |
+| Password reset flow via local SMTP capture | Expected | ✅ Built | Tested via `test_password_reset.py` (Anti-enumeration 200, SHA-256 tokens, 30-min expiry 400, reused 400, token_version session revocation 401) |
 | Quotation templates | Expected | ⬜ Not built (Roadmap) | Predefined multi-line product bundles with configurable quotation validity duration (number of days). |
 | Product variants | Expected | ⬜ Not built (Roadmap) | Multi-attribute product variant engine (tier, user seats, hosting region) with price differentials. |
 | Real email delivery & printed PDFs | Stretch | ⬜ Not built (Roadmap) | Offline-first HTML-to-PDF invoice printing and asynchronous background email delivery. |

@@ -1,5 +1,5 @@
 """User model — authentication and role management."""
-from sqlalchemy import Column, String, CheckConstraint
+from sqlalchemy import Column, String, Integer, CheckConstraint
 from backend.app.core.database import Base
 from backend.app.models.base import IDMixin, TimestampMixin
 
@@ -21,4 +21,5 @@ class User(IDMixin, TimestampMixin, Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default="customer")
+    token_version = Column(Integer, nullable=False, default=1)
     is_active = Column(String(1), nullable=False, default="Y")

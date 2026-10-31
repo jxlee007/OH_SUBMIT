@@ -6,9 +6,14 @@ from jose import JWTError
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.security import create_access_token, create_refresh_token, decode_token
-from backend.app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserOut
+from backend.app.schemas.auth import (
+    RegisterRequest, LoginRequest, TokenResponse, UserOut,
+    ForgotPasswordRequest, ResetPasswordRequest,
+)
 from backend.app.schemas.common import StandardResponse, ok
-from backend.app.services.auth_service import register_user, login_user
+from backend.app.services.auth_service import (
+    register_user, login_user, request_password_reset, complete_password_reset,
+)
 from backend.app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -28,7 +33,11 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     """Authenticate and return a short-lived in-memory JWT access token.
     Sets a secure, httpOnly refresh cookie for silent session hydration."""
     user = login_user(payload, db)
-    token_data = {"sub": str(user.id), "role": user.role}
+    token_data = {
+        "sub": str(user.id),
+        "role": user.role,
+        "tv": getattr(user, "token_version", 1),
+    }
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
 
@@ -75,7 +84,17 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
     if not user or user.is_active != "Y":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive or not found.")
 
-    token_data = {"sub": str(user.id), "role": user.role}
+    if payload.get("tv") is not None and payload.get("tv") != getattr(user, "token_version", 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been revoked due to password change. Please login again.",
+        )
+
+    token_data = {
+        "sub": str(user.id),
+        "role": user.role,
+        "tv": getattr(user, "token_version", 1),
+    }
     new_access_token = create_access_token(token_data)
 
     result = TokenResponse(
@@ -84,6 +103,23 @@ def refresh_session(request: Request, response: Response, db: Session = Depends(
         user=UserOut.model_validate(user),
     )
     return ok(result, "Session refreshed.")
+
+
+@router.post("/forgot-password", response_model=StandardResponse[dict])
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Initiates password reset flow. Returns 200 identically whether email exists or not."""
+    request_password_reset(payload.email, db)
+    return ok(
+        {"dispatched": True},
+        "If an account exists with this email address, a password reset link has been dispatched.",
+    )
+
+
+@router.post("/reset-password", response_model=StandardResponse[UserOut])
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Completes password reset using single-use token and invalidates previous sessions."""
+    user = complete_password_reset(payload.token, payload.new_password, db)
+    return ok(UserOut.model_validate(user), "Password successfully updated. Please login with your new credentials.")
 
 
 @router.post("/logout", response_model=StandardResponse[dict])

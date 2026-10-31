@@ -58,3 +58,27 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Payload for POST /api/auth/forgot-password."""
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Payload for POST /api/auth/reset-password."""
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("must contain an uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("must contain a lowercase letter")
+        if not re.search(r"[^A-Za-z0-9]", v):
+            raise ValueError("must contain a special character")
+        return v

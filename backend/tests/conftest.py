@@ -21,7 +21,7 @@ def db_engine():
         poolclass=StaticPool,
     )
     # Import all models so metadata is registered
-    from backend.app.models import user, product, plan, subscription, invoice, payment, discount  # noqa: F401
+    from backend.app.models import user, product, plan, subscription, invoice, payment, discount, password_reset  # noqa: F401
     Base.metadata.create_all(bind=engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
