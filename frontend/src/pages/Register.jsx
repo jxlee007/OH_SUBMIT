@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { User, Mail, Lock, Check, X, Shield, ArrowRight } from 'lucide-react';
 
@@ -10,8 +9,6 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('customer');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -26,26 +23,18 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
 
     // Layer 1 Client Validation
     if (!fullName.trim()) {
-      const msg = 'Please provide your full legal or business name.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Please provide your full legal or business name.');
       return;
     }
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      const msg = 'Please provide a valid email address.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Please provide a valid email address.');
       return;
     }
     if (!isPasswordValid) {
-      const msg = 'Password does not meet all required security policy criteria.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Password does not meet all required security policy criteria.');
       return;
     }
 
@@ -60,11 +49,9 @@ export default function Register() {
 
     if (res.success) {
       notify.success('Account created successfully! Redirecting to login...');
-      setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => navigate('/login'), 1200);
     } else {
       const errMsg = res.message || res.error || 'Registration failed.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -81,9 +68,6 @@ export default function Register() {
             Register your Brightloop portal membership
           </p>
         </div>
-
-        <AlertBanner type="error" message={error} onClose={() => setError('')} />
-        <AlertBanner type="success" message={success} />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

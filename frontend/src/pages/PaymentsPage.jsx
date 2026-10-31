@@ -5,7 +5,6 @@ import {
   getOutstandingInvoices, 
   getCurrentUser 
 } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { CreditCard, Plus, Clock } from 'lucide-react';
 
@@ -13,8 +12,6 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState([]);
   const [outstandingInvoices, setOutstandingInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const user = getCurrentUser();
 
   // Record Payment Modal State
@@ -27,7 +24,6 @@ export default function PaymentsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     const [pRes, oRes] = await Promise.all([
       getPayments(),
       getOutstandingInvoices(),
@@ -35,7 +31,7 @@ export default function PaymentsPage() {
     setLoading(false);
 
     if (pRes.success) setPayments(pRes.data || []);
-    else setError(pRes.error || 'Failed to fetch payment ledger');
+    else notify.error(pRes.error || 'Failed to fetch payment ledger');
 
     if (oRes.success && oRes.data?.length > 0) {
       setOutstandingInvoices(oRes.data);
@@ -52,21 +48,15 @@ export default function PaymentsPage() {
 
   const handleRecordPayment = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
 
     // Layer 1 Client Check
     const amountNum = parseFloat(paymentAmount);
     if (isNaN(amountNum) || amountNum <= 0) {
-      const msg = 'Payment amount must be strictly greater than 0 (Layer 1 Defense).';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Payment amount must be strictly greater than 0 (Layer 1 Defense).');
       return;
     }
     if (!selectedInvoiceId) {
-      const msg = 'Please choose an invoice to apply payment.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Please choose an invoice to apply payment.');
       return;
     }
 
@@ -79,14 +69,11 @@ export default function PaymentsPage() {
     });
 
     if (res.success) {
-      const msg = `Payment of ₹${amountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })} recorded successfully!`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Payment of ₹${amountNum.toLocaleString('en-IN', { minimumFractionDigits: 2 })} recorded successfully!`);
       setShowModal(false);
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Payment rejected.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -111,9 +98,6 @@ export default function PaymentsPage() {
           </button>
         )}
       </div>
-
-      <AlertBanner type="error" message={error} onClose={() => setError('')} />
-      <AlertBanner type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Outstanding Invoices Section */}
       <div className="space-y-4">

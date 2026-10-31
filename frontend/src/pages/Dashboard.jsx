@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDashboardSummary, getCurrentUser } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { 
   Users, 
@@ -18,12 +17,10 @@ import {
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const user = getCurrentUser();
 
   const loadSummary = async (showToast = false) => {
     setLoading(true);
-    setError('');
     const res = await getDashboardSummary();
     setLoading(false);
     if (res.success && res.data) {
@@ -32,7 +29,7 @@ export default function Dashboard() {
         notify.info('Dashboard metrics updated from database.');
       }
     } else {
-      setError(res.error || 'Failed to retrieve live reporting summary.');
+      notify.error(res.message || res.error || 'Failed to retrieve live reporting summary.');
     }
   };
 
@@ -72,8 +69,6 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-
-      <AlertBanner type="error" message={error} onClose={() => setError('')} />
 
       {/* KPI Cards Grid: 1 col below sm (<375px), 2 cols at sm (>=375px), 4 cols at lg (>=1280px) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

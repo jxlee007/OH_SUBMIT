@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { getProducts, createProduct, getPlans, createPlan, getCurrentUser } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { Package, Plus, Calendar } from 'lucide-react';
 
@@ -8,8 +7,6 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const user = getCurrentUser();
 
   // Create Product Form State
@@ -28,12 +25,11 @@ export default function ProductsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     const [pRes, plRes] = await Promise.all([getProducts(), getPlans()]);
     setLoading(false);
 
     if (pRes.success) setProducts(pRes.data || []);
-    else setError(pRes.error || 'Failed to fetch products');
+    else notify.error(pRes.error || 'Failed to fetch products');
 
     if (plRes.success) {
       setPlans(plRes.data || []);
@@ -50,16 +46,12 @@ export default function ProductsPage() {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!newProductName.trim()) {
-      const msg = 'Product name cannot be empty.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Product name cannot be empty.');
       return;
     }
     const salesPriceNum = parseFloat(newSalesPrice);
     if (isNaN(salesPriceNum) || salesPriceNum < 0) {
-      const msg = 'Sales price must be a non-negative number.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Sales price must be a non-negative number.');
       return;
     }
 
@@ -71,9 +63,7 @@ export default function ProductsPage() {
     });
 
     if (res.success) {
-      const msg = `Product "${newProductName}" created successfully.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Product "${newProductName}" created successfully.`);
       setShowProductModal(false);
       setNewProductName('');
       setNewSalesPrice('');
@@ -81,7 +71,6 @@ export default function ProductsPage() {
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to create product.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -89,16 +78,12 @@ export default function ProductsPage() {
   const handleCreatePlan = async (e) => {
     e.preventDefault();
     if (!newPlanName.trim()) {
-      const msg = 'Plan name cannot be empty.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Plan name cannot be empty.');
       return;
     }
     const priceNum = parseFloat(newPlanPrice);
     if (isNaN(priceNum) || priceNum < 0) {
-      const msg = 'Plan price must be a non-negative number.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Plan price must be a non-negative number.');
       return;
     }
 
@@ -110,16 +95,13 @@ export default function ProductsPage() {
     });
 
     if (res.success) {
-      const msg = `Plan "${newPlanName}" created successfully.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Plan "${newPlanName}" created successfully.`);
       setShowPlanModal(false);
       setNewPlanName('');
       setNewPlanPrice('');
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to create plan.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -153,9 +135,6 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
-
-      <AlertBanner type="error" message={error} onClose={() => setError('')} />
-      <AlertBanner type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Plans Section */}
       <div className="space-y-4">

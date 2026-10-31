@@ -6,7 +6,6 @@ import {
   getSubscriptions, 
   getCurrentUser 
 } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { Receipt, Plus, AlertCircle, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -16,8 +15,6 @@ export default function InvoicesPage() {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const user = getCurrentUser();
 
@@ -29,7 +26,6 @@ export default function InvoicesPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     const [invRes, subRes] = await Promise.all([
       getInvoices(overdueOnly, statusFilter),
       getSubscriptions('active'),
@@ -37,7 +33,7 @@ export default function InvoicesPage() {
     setLoading(false);
 
     if (invRes.success) setInvoices(invRes.data || []);
-    else setError(invRes.error || 'Failed to fetch invoices');
+    else notify.error(invRes.error || 'Failed to fetch invoices');
 
     if (subRes.success && subRes.data?.length > 0) {
       setActiveSubscriptions(subRes.data);
@@ -52,15 +48,11 @@ export default function InvoicesPage() {
   const handleGenerateInvoice = async (e) => {
     e.preventDefault();
     if (!selectedSubId) {
-      const msg = 'Please select an active subscription.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Please select an active subscription.');
       return;
     }
     if (!billingPeriodKey.trim()) {
-      const msg = 'Billing period key (e.g., 2026-11) is required.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Billing period key (e.g., 2026-11) is required.');
       return;
     }
 
@@ -71,30 +63,22 @@ export default function InvoicesPage() {
     });
 
     if (res.success) {
-      const msg = `Invoice #${res.data?.id} generated successfully for period ${billingPeriodKey}.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Invoice #${res.data?.id} generated successfully for period ${billingPeriodKey}.`);
       setShowGenerateModal(false);
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to generate invoice.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
 
   const handleStatusChange = async (id, nextStatus) => {
-    setError('');
-    setSuccess('');
     const res = await updateInvoiceStatus(id, nextStatus);
     if (res.success) {
-      const msg = `Invoice #${id} transitioned to ${nextStatus}.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Invoice #${id} transitioned to ${nextStatus}.`);
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to update status.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -134,9 +118,6 @@ export default function InvoicesPage() {
           </button>
         )}
       </div>
-
-      <AlertBanner type="error" message={error} onClose={() => setError('')} />
-      <AlertBanner type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Filter Disclosure (< md collapsible, md+ inline) */}
       <div className="space-y-2">

@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { loginUser, requestPasswordReset } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { Lock, Mail, ArrowRight, KeyRound, X } from 'lucide-react';
 
 export default function Login({ onAuthSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -18,15 +16,15 @@ export default function Login({ onAuthSuccess }) {
   // Layer 1 Client-Side Quick Form Validation
   const validateForm = () => {
     if (!email.trim()) {
-      setError('Please provide your registered account email.');
+      notify.error('Please provide your registered account email.');
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email address (e.g., name@company.com).');
+      notify.error('Please enter a valid email address (e.g., name@company.com).');
       return false;
     }
     if (!password) {
-      setError('Please enter your account password.');
+      notify.error('Please enter your account password.');
       return false;
     }
     return true;
@@ -34,7 +32,6 @@ export default function Login({ onAuthSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
 
     if (!validateForm()) return;
 
@@ -48,7 +45,6 @@ export default function Login({ onAuthSuccess }) {
       navigate('/');
     } else {
       const errMsg = res.message || res.error || 'Authentication failed. Please verify your credentials.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -90,8 +86,6 @@ export default function Login({ onAuthSuccess }) {
             Access your subscriptions, invoices, and billing portal
           </p>
         </div>
-
-        <AlertBanner type="error" message={error} onClose={() => setError('')} />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

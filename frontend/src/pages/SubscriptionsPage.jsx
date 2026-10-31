@@ -7,7 +7,6 @@ import {
   getProducts, 
   getCurrentUser 
 } from '../services/api';
-import AlertBanner from '../components/AlertBanner';
 import notify from '../services/notify';
 import { Repeat, Plus, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -17,8 +16,6 @@ export default function SubscriptionsPage() {
   const [products, setProducts] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const user = getCurrentUser();
 
@@ -34,7 +31,6 @@ export default function SubscriptionsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    setError('');
     const [subRes, planRes, prodRes] = await Promise.all([
       getSubscriptions(statusFilter),
       getPlans(),
@@ -43,7 +39,7 @@ export default function SubscriptionsPage() {
     setLoading(false);
 
     if (subRes.success) setSubscriptions(subRes.data || []);
-    else setError(subRes.error || 'Failed to fetch subscriptions');
+    else notify.error(subRes.error || 'Failed to fetch subscriptions');
 
     if (planRes.success && planRes.data?.length > 0) {
       setPlans(planRes.data);
@@ -64,17 +60,12 @@ export default function SubscriptionsPage() {
   }, [statusFilter]);
 
   const handleStatusTransition = async (id, nextStatus) => {
-    setError('');
-    setSuccess('');
     const res = await updateSubscriptionStatus(id, nextStatus);
     if (res.success) {
-      const msg = `Subscription #${id} successfully transitioned to ${nextStatus}.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Subscription #${id} successfully transitioned to ${nextStatus}.`);
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to transition subscription status.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -82,9 +73,7 @@ export default function SubscriptionsPage() {
   const handleCreateSubscription = async (e) => {
     e.preventDefault();
     if (!selectedPlanId) {
-      const msg = 'Please select a valid plan.';
-      setError(msg);
-      notify.error(msg);
+      notify.error('Please select a valid plan.');
       return;
     }
 
@@ -105,14 +94,11 @@ export default function SubscriptionsPage() {
 
     const res = await createSubscription(payload);
     if (res.success) {
-      const msg = `Subscription ${res.data?.number} created in Draft.`;
-      setSuccess(msg);
-      notify.success(msg);
+      notify.success(`Subscription ${res.data?.number} created in Draft.`);
       setShowCreateModal(false);
       fetchData();
     } else {
       const errMsg = res.message || res.error || 'Failed to create subscription.';
-      setError(errMsg);
       notify.error(errMsg);
     }
   };
@@ -154,9 +140,6 @@ export default function SubscriptionsPage() {
           </button>
         )}
       </div>
-
-      <AlertBanner type="error" message={error} onClose={() => setError('')} />
-      <AlertBanner type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Filter Disclosure (< md collapsible, md+ inline) */}
       <div className="space-y-2">
