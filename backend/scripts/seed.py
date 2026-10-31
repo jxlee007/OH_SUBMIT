@@ -14,6 +14,7 @@ from backend.app.models.product import Product, Plan
 from backend.app.models.subscription import Subscription, SubscriptionLine
 from backend.app.models.invoice import Invoice, InvoiceLine
 from backend.app.models.payment import Payment
+from backend.app.models.discount import DiscountRule
 
 
 def seed_demo_data():
@@ -248,6 +249,24 @@ def seed_demo_data():
             inv1.status = "paid"
             db.commit()
             print(f"[OK] Payment verified: ID={pay1.id} on Invoice {inv1.id}.")
+
+        # 7. Discount Rules
+        d1 = db.query(DiscountRule).filter(DiscountRule.code == "WELCOME10").first()
+        if not d1:
+            d1 = DiscountRule(
+                code="WELCOME10",
+                name="10% Welcome Discount",
+                rule_type="percent",
+                discount_value=Decimal("10.00"),
+                applies_to="subscription",
+                valid_from=date(2026, 1, 1),
+                valid_to=date(2026, 12, 31),
+                usage_limit=100,
+                is_active=True,
+            )
+            db.add(d1)
+            db.commit()
+            print("[OK] Discount rule verified: WELCOME10 (10% off).")
 
         print("\nAll database seeds successfully established in local PostgreSQL (oh_db)!")
     finally:

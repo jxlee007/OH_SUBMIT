@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from backend.app.models.invoice import Invoice, InvoiceLine, INVOICE_STATUS_TRANSITIONS
 from backend.app.models.subscription import Subscription
 from backend.app.schemas.invoice import GenerateInvoiceRequest, InvoiceStatusUpdate
+from backend.app.services.discount_service import get_and_lock_discount_rule
 
 
 def _round2(value: Decimal) -> Decimal:
@@ -36,27 +37,65 @@ def generate_invoice(payload: GenerateInvoiceRequest, db: Session) -> Invoice:
             detail=f"Invoice already exists for period '{payload.billing_period_key}'.",
         )
 
+    # Check and lock discount rule if provided
+    discount_rule = None
+    if payload.discount_code:
+        discount_rule = get_and_lock_discount_rule(payload.discount_code, db)
+
+        # Validate minimum purchase constraints
+        total_sub_qty = sum(line.quantity for line in sub.lines)
+        total_sub_gross = sum(_round2(Decimal(str(line.quantity)) * line.unit_price) for line in sub.lines)
+        if total_sub_gross < discount_rule.min_amount:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum purchase amount of ₹{discount_rule.min_amount} required for discount code '{discount_rule.code}'.",
+            )
+        if total_sub_qty < discount_rule.min_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum quantity of {discount_rule.min_quantity} items required for discount code '{discount_rule.code}'.",
+            )
+
     # Build invoice lines from subscription lines
     subtotal = Decimal("0.00")
     total_tax = Decimal("0.00")
     invoice_lines = []
 
     for sub_line in sub.lines:
-        net = _round2(Decimal(str(sub_line.quantity)) * sub_line.unit_price)
+        gross_amount = _round2(Decimal(str(sub_line.quantity)) * sub_line.unit_price)
+        line_discount = Decimal("0.00")
+
+        if discount_rule:
+            is_eligible = True
+            if discount_rule.applies_to == "product" and sub_line.product_id != discount_rule.product_id:
+                is_eligible = False
+
+            if is_eligible:
+                if discount_rule.rule_type == "percent":
+                    line_discount = _round2(gross_amount * (discount_rule.discount_value / Decimal("100")))
+                else:
+                    line_discount = min(discount_rule.discount_value, gross_amount)
+
+        net = _round2(gross_amount - line_discount)
         tax = _round2(net * sub_line.tax_rate / Decimal("100"))
-        gross = _round2(net + tax)
+        line_total = _round2(net + tax)
         subtotal += net
         total_tax += tax
+
         invoice_lines.append(InvoiceLine(
             product_id=sub_line.product_id,
             description=sub_line.description or (sub_line.product.name if sub_line.product else "Service"),
             quantity=sub_line.quantity,
             unit_price=sub_line.unit_price,
             tax_rate=sub_line.tax_rate,
+            discount_amount=line_discount,
             net_amount=net,
             tax_amount=tax,
-            amount=gross,
+            amount=line_total,
         ))
+
+    if discount_rule:
+        discount_rule.times_used += 1
 
     invoice = Invoice(
         subscription_id=sub.id,

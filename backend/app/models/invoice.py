@@ -53,6 +53,12 @@ class InvoiceLine(IDMixin, Base):
     """A single product line on an invoice."""
 
     __tablename__ = "invoice_lines"
+    __table_args__ = (
+        CheckConstraint(
+            "discount_amount >= 0",
+            name="ck_invoice_line_discount_amount",
+        ),
+    )
 
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="RESTRICT"), nullable=True)
@@ -60,6 +66,7 @@ class InvoiceLine(IDMixin, Base):
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
     tax_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
+    discount_amount = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     net_amount = Column(Numeric(12, 2), nullable=False)
     tax_amount = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     amount = Column(Numeric(12, 2), nullable=False)

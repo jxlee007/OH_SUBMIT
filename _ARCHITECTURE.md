@@ -73,7 +73,7 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 | Period invoice generation & double-billing guard | Core | ✅ Built | Tested via `test_invoices.py` |
 | Payment recording with amount > 0 | Core | ✅ Built | Tested via `test_payments.py` |
 | Read-only operational metrics view | View | ✅ Built | Tested via `test_dashboard.py` (No state mutations) |
-| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Admin-created discount rules with fixed/percentage value, minimum purchase/quantity, validity dates, and usage limits. |
+| Discount rules applied to next invoice | Expected | ✅ Built | Tested via `test_discounts.py` (Admin CRUD, concurrency locking with FOR UPDATE, line-item storage, expired 400, limit 409) |
 | Password reset flow via local SMTP capture | Expected | ⬜ Not built (Roadmap) | Self-service password reset request via local SMTP capture (`aiosmtpd`) with secure token expiry. |
 | Quotation templates | Expected | ⬜ Not built (Roadmap) | Predefined multi-line product bundles with configurable quotation validity duration (number of days). |
 | Product variants | Expected | ⬜ Not built (Roadmap) | Multi-attribute product variant engine (tier, user seats, hosting region) with price differentials. |

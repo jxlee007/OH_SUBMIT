@@ -10,6 +10,7 @@ class GenerateInvoiceRequest(BaseModel):
     subscription_id: int
     billing_period_key: str  # e.g. "2026-10", "2026-W44"
     due_date: Optional[date] = None
+    discount_code: Optional[str] = None
 
 
 class InvoiceLineRead(BaseModel):
@@ -18,6 +19,7 @@ class InvoiceLineRead(BaseModel):
     quantity: int
     unit_price: Decimal
     tax_rate: Decimal
+    discount_amount: Decimal
     net_amount: Decimal
     tax_amount: Decimal
     amount: Decimal

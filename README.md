@@ -161,7 +161,7 @@ stateDiagram-v2
 
 In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, features are rigorously bounded to 5 Core Features + 1 Read-only Aggregation View:
 
-### Core Vertical Slice (Built & Verified)
+### Core Vertical Slice (Built & Verified — 5 Features + 1 View)
 | Feature | Tier | Status | Verification |
 |---|---|---|---|
 | Registration with unique email & password policy (8+ chars, upper, lower, special) | Core | ✅ Built | Tested via `test_auth.py` |
@@ -173,10 +173,10 @@ In strict compliance with the **3-to-5 feature rule** for an 8-hour sprint, feat
 | Payment recording against invoices with `ck_payment_positive` (`amount > 0`) | Core | ✅ Built | Tested via `test_payments.py` |
 | Real-time operational dashboard with KPI metrics (Read-only UI aggregation) | View | ✅ Built | Tested via `test_dashboard.py` (No state mutations) |
 
-### Expected & Stretch Roadmap (Not Built — Post-Sprint)
-| Requirement | Tier | Status | Specification (One-Line Summary) |
+### Expected & Stretch Features (Incrementally Built & Tested)
+| Requirement | Tier | Status | Specification & Verification |
 |---|---|---|---|
-| Discount rules applied to next invoice | Expected | ⬜ Not built (Roadmap) | Admin-created discount rules with fixed/percentage value, minimum purchase/quantity, validity dates, and usage limits. |
+| Discount rules applied to next invoice | Expected | ✅ Built | Tested via `test_discounts.py`: Admin CRUD, concurrency `SELECT ... FOR UPDATE`, invoice line-item storage, expired 400, limit 409, percent > 100 422. |
 | Password reset flow | Expected | ⬜ Not built (Roadmap) | Self-service password reset request via local SMTP capture (`aiosmtpd`) with secure token expiry. |
 | Quotation templates | Expected | ⬜ Not built (Roadmap) | Predefined multi-line product bundles with configurable quotation validity duration (number of days). |
 | Product variants | Expected | ⬜ Not built (Roadmap) | Multi-attribute product variant engine (tier, user seats, hosting region) with price differentials. |
@@ -221,11 +221,11 @@ pip install -r backend/requirements.txt
 # Run demo database seeding (idempotent)
 python backend/scripts/seed.py
 
-# Run automated test suite (30 tests)
+# Run automated test suite (36 tests)
 pytest backend/tests/ -v
 ```
 
-#### Live Test Suite Terminal Output (Verified 30/30 Passing)
+#### Live Test Suite Terminal Output (Verified 36/36 Passing)
 ```text
 ============================= test session starts =============================
 platform win32 -- Python 3.12.10, pytest-9.2.0, pluggy-1.7.0 -- A:\SAAS\OH_SUBMIT\.venv\Scripts\python.exe
@@ -234,40 +234,46 @@ rootdir: A:\SAAS\OH_SUBMIT
 configfile: pytest.ini
 plugins: anyio-3.7.1, asyncio-1.4.1
 asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
-collecting ... collected 30 items
+collecting ... collected 36 items
 
-backend/tests/test_auth.py::test_register_happy_path PASSED              [  3%]
-backend/tests/test_auth.py::test_register_duplicate_email_returns_409 PASSED [  6%]
-backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [ 10%]
-backend/tests/test_auth.py::test_login_happy_path PASSED                 [ 13%]
-backend/tests/test_auth.py::test_login_wrong_password_returns_401 PASSED [ 16%]
-backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [ 20%]
-backend/tests/test_auth.py::test_refresh_token_missing_cookie_returns_401 PASSED [ 23%]
-backend/tests/test_auth.py::test_logout_endpoint PASSED                  [ 26%]
-backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 30%]
-backend/tests/test_dashboard.py::test_summary_customer_forbidden PASSED  [ 33%]
-backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 36%]
-backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 40%]
-backend/tests/test_invoices.py::test_invoice_status_draft_to_confirmed PASSED [ 43%]
-backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 46%]
-backend/tests/test_payments.py::test_record_payment_happy_path PASSED    [ 50%]
-backend/tests/test_payments.py::test_payment_zero_amount_returns_422 PASSED [ 53%]
-backend/tests/test_payments.py::test_payment_negative_amount_returns_422 PASSED [ 56%]
-backend/tests/test_payments.py::test_payment_unknown_invoice_returns_404 PASSED [ 60%]
-backend/tests/test_payments.py::test_customer_cannot_record_payment_returns_403 PASSED [ 63%]
-backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 66%]
-backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 70%]
-backend/tests/test_products.py::test_customer_cannot_create_product_returns_403 PASSED [ 73%]
-backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 76%]
-backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 80%]
-backend/tests/test_products.py::test_customer_cannot_create_plan_returns_403 PASSED [ 83%]
-backend/tests/test_subscriptions.py::test_create_subscription_happy_path PASSED [ 86%]
-backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 90%]
-backend/tests/test_subscriptions.py::test_invalid_status_transition_returns_409 PASSED [ 93%]
-backend/tests/test_subscriptions.py::test_customer_cannot_create_subscription_returns_403 PASSED [ 96%]
+backend/tests/test_auth.py::test_register_happy_path PASSED              [  2%]
+backend/tests/test_auth.py::test_register_duplicate_email_returns_409 PASSED [  5%]
+backend/tests/test_auth.py::test_register_weak_password_returns_422 PASSED [  8%]
+backend/tests/test_auth.py::test_login_happy_path PASSED                 [ 11%]
+backend/tests/test_auth.py::test_login_wrong_password_returns_401 PASSED [ 13%]
+backend/tests/test_auth.py::test_refresh_token_happy_path PASSED         [ 16%]
+backend/tests/test_auth.py::test_refresh_token_missing_cookie_returns_401 PASSED [ 19%]
+backend/tests/test_auth.py::test_logout_endpoint PASSED                  [ 22%]
+backend/tests/test_dashboard.py::test_summary_empty_db PASSED            [ 25%]
+backend/tests/test_dashboard.py::test_summary_customer_forbidden PASSED  [ 27%]
+backend/tests/test_discounts.py::test_create_discount_percent_over_100_returns_422 PASSED [ 30%]
+backend/tests/test_discounts.py::test_customer_cannot_create_discount_returns_403 PASSED [ 33%]
+backend/tests/test_discounts.py::test_expired_discount_rule_returns_400 PASSED [ 36%]
+backend/tests/test_discounts.py::test_exhausted_usage_limit_returns_409 PASSED [ 38%]
+backend/tests/test_discounts.py::test_valid_discount_rule_applied_to_invoice_happy_path PASSED [ 41%]
+backend/tests/test_discounts.py::test_product_scoped_discount_applied_only_to_matching_product PASSED [ 44%]
+backend/tests/test_invoices.py::test_generate_invoice_happy_path PASSED  [ 47%]
+backend/tests/test_invoices.py::test_double_billing_returns_409 PASSED   [ 50%]
+backend/tests/test_invoices.py::test_invoice_status_draft_to_confirmed PASSED [ 52%]
+backend/tests/test_invoices.py::test_invalid_invoice_status_transition_returns_400 PASSED [ 55%]
+backend/tests/test_payments.py::test_record_payment_happy_path PASSED    [ 58%]
+backend/tests/test_payments.py::test_payment_zero_amount_returns_422 PASSED [ 61%]
+backend/tests/test_payments.py::test_payment_negative_amount_returns_422 PASSED [ 63%]
+backend/tests/test_payments.py::test_payment_unknown_invoice_returns_404 PASSED [ 66%]
+backend/tests/test_payments.py::test_customer_cannot_record_payment_returns_403 PASSED [ 69%]
+backend/tests/test_products.py::test_create_product_happy_path PASSED    [ 72%]
+backend/tests/test_products.py::test_create_product_missing_name_returns_422 PASSED [ 75%]
+backend/tests/test_products.py::test_customer_cannot_create_product_returns_403 PASSED [ 77%]
+backend/tests/test_products.py::test_create_plan_happy_path PASSED       [ 80%]
+backend/tests/test_products.py::test_create_plan_invalid_billing_period_returns_422 PASSED [ 83%]
+backend/tests/test_products.py::test_customer_cannot_create_plan_returns_403 PASSED [ 86%]
+backend/tests/test_subscriptions.py::test_create_subscription_happy_path PASSED [ 88%]
+backend/tests/test_subscriptions.py::test_subscription_status_lifecycle PASSED [ 91%]
+backend/tests/test_subscriptions.py::test_invalid_status_transition_returns_409 PASSED [ 94%]
+backend/tests/test_subscriptions.py::test_customer_cannot_create_subscription_returns_403 PASSED [ 97%]
 backend/tests/test_subscriptions.py::test_create_subscription_unknown_customer_returns_422 PASSED [100%]
 
-======================= 30 passed, 2 warnings in 26.37s =======================
+======================= 36 passed, 2 warnings in 45.98s =======================
 ```
 
 # Start backend server (Port 8000)

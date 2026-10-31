@@ -30,6 +30,7 @@ def get_invoices(
 
 
 @router.post("", response_model=StandardResponse[InvoiceRead], status_code=status.HTTP_201_CREATED)
+@router.post("/generate", response_model=StandardResponse[InvoiceRead], status_code=status.HTTP_201_CREATED)
 def create_invoice(
     payload: GenerateInvoiceRequest,
     db: Session = Depends(get_db),
